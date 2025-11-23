@@ -17,6 +17,7 @@ export const EditableBlock = ({ initialContent, tag, onSave, index, isStreaming,
     setIsEditing(false);
     setAiPrompt('');
   };
+
   const handleCancel = () => {
     setContent(initialContent);
     setIsEditing(false);
@@ -30,7 +31,15 @@ export const EditableBlock = ({ initialContent, tag, onSave, index, isStreaming,
 
     setIsRefining(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+
+      if (!apiKey) {
+        console.error('Google API key not found. Please set NEXT_PUBLIC_GOOGLE_API_KEY in .env');
+        setContent(content + '\n\n[AI Error: API key not configured]');
+        return;
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
 
       let prompt = `Refine the following text based on this instruction: "${aiPrompt}". 
       CRITICAL STYLE RULES: 
@@ -49,11 +58,15 @@ export const EditableBlock = ({ initialContent, tag, onSave, index, isStreaming,
         model: 'gemini-2.5-flash',
         contents: prompt,
       });
+
       const refinedText = response.text;
-      if (refinedText) setContent(refinedText.trim());
+      if (refinedText) {
+        setContent(refinedText.trim());
+      }
       setAiPrompt('');
     } catch (error) {
       console.error('Refinement failed', error);
+      alert('AI refinement failed. Please check your API key and try again.');
     } finally {
       setIsRefining(false);
     }

@@ -27,34 +27,38 @@ export default function SitemapPage() {
   const handleSitemapFetch = async () => {
     setSitemapStatus('loading');
     setSitemapError('');
-    await new Promise((r) => setTimeout(r, 1500));
 
-    let links: SitemapLink[] = [];
-    if (sitemapInputType === 'text' && sitemapText) {
-      const matches = sitemapText.match(/<loc>(.*?)<\/loc>/g);
-      if (matches) {
-        links = matches.map((m) => {
-          const url = m.replace(/<\/?loc>/g, '');
-          const text = url.split('/').pop()?.replace(/-/g, ' ') || 'Page';
-          return { url, text };
-        });
+    try {
+      const response = await fetch('/api/sitemap/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: sitemapInputType === 'url' ? sitemapUrl : undefined,
+          xml: sitemapInputType === 'text' ? sitemapText : undefined,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setSitemapError(data.error || 'Failed to scrape sitemap');
+        setSitemapStatus('idle');
+        return;
       }
-    } else {
-      links = [
-        { url: 'https://example.com/', text: 'Home' },
-        { url: 'https://example.com/about', text: 'About' },
-        { url: 'https://example.com/contact', text: 'Contact' },
-        { url: 'https://example.com/blog/post-1', text: 'First Post' },
-      ];
-    }
 
-    if (links.length === 0) {
-      setSitemapError('No URLs found. Try pasting the XML content directly.');
+      const links: SitemapLink[] = data.links || [];
+
+      if (links.length === 0) {
+        setSitemapError('No URLs found. Try pasting the XML content directly.');
+        setSitemapStatus('idle');
+      } else {
+        setDiscoveredUrls(links);
+        setSitemapStatus('parsed');
+        dispatch({ type: 'SET_SITEMAP', payload: links });
+      }
+    } catch (error: any) {
+      setSitemapError(`Error: ${error.message}`);
       setSitemapStatus('idle');
-    } else {
-      setDiscoveredUrls(links);
-      setSitemapStatus('parsed');
-      dispatch({ type: 'SET_SITEMAP', payload: links });
     }
   };
 

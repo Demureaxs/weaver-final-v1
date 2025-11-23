@@ -9,10 +9,13 @@ const initialState: UserState = {
   theme: 'light',
 };
 
-const UserContext = createContext<{
-  state: UserState;
-  dispatch: React.Dispatch<Action>;
-} | undefined>(undefined);
+const UserContext = createContext<
+  | {
+      state: UserState;
+      dispatch: React.Dispatch<Action>;
+    }
+  | undefined
+>(undefined);
 
 const userReducer = (state: UserState, action: Action): UserState => {
   switch (action.type) {
@@ -31,27 +34,31 @@ const userReducer = (state: UserState, action: Action): UserState => {
       return {
         ...state,
         user: {
-            ...state.user,
-            articles: [action.payload, ...state.user.articles],
-            activeCount: (state.user.activeCount || 0) + 1
-        }
+          ...state.user,
+          articles: [action.payload, ...state.user.articles],
+          activeCount: (state.user.activeCount || 0) + 1,
+        },
       };
     case 'SET_SITEMAP':
       if (!state.user) return state;
       return {
         ...state,
-        user: { ...state.user, sitemap: action.payload }
+        user: { ...state.user, sitemap: action.payload },
       };
     case 'TOGGLE_KEYWORD':
       if (!state.user) return state;
       const kw = action.payload;
       const exists = state.user.keywords.includes(kw);
-      const newKeywords = exists
-        ? state.user.keywords.filter((k) => k !== kw)
-        : [...state.user.keywords, kw];
+      const newKeywords = exists ? state.user.keywords.filter((k) => k !== kw) : [...state.user.keywords, kw];
       return {
         ...state,
-        user: { ...state.user, keywords: newKeywords }
+        user: { ...state.user, keywords: newKeywords },
+      };
+    case 'UPDATE_USER':
+      if (!state.user) return state;
+      return {
+        ...state,
+        user: { ...state.user, ...action.payload },
       };
     case 'TOGGLE_THEME':
       return { ...state, theme: state.theme === 'light' ? 'dark' : 'light' };
@@ -63,11 +70,7 @@ const userReducer = (state: UserState, action: Action): UserState => {
 export const UserProvider = ({ children }: { children?: ReactNode }) => {
   const [state, dispatch] = useReducer(userReducer, initialState);
 
-  return (
-    <UserContext.Provider value={{ state, dispatch }}>
-      {children}
-    </UserContext.Provider>
-  );
+  return <UserContext.Provider value={{ state, dispatch }}>{children}</UserContext.Provider>;
 };
 
 export const useUser = () => {

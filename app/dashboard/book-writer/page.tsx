@@ -47,6 +47,85 @@ const CategoryIcon = ({ category, size = 16 }: { category: WorldCategory; size?:
   }
 };
 
+// --- CONSTANTS ---
+const WORLD_CATEGORIES: WorldCategory[] = ['Location', 'Lore', 'Magic', 'Tech', 'Faction'];
+
+// Quick Add Buttons Component - Memoized to prevent reconciliation issues
+const QuickAddButtons = React.memo(() => {
+  return (
+    <>
+      {WORLD_CATEGORIES.map((cat) => (
+        <button
+          key={cat}
+          className='flex flex-col items-center justify-center p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors'
+        >
+          <CategoryIcon category={cat} size={14} />
+          <span className='text-[10px] mt-1 text-gray-600 dark:text-gray-400'>{cat}</span>
+        </button>
+      ))}
+    </>
+  );
+});
+
+QuickAddButtons.displayName = 'QuickAddButtons';
+
+// Modals Component - Memoized to prevent reconciliation issues
+const BookWriterModals = React.memo<{
+  isCharacterModalOpen: boolean;
+  setIsCharacterModalOpen: (open: boolean) => void;
+  handleSaveCharacter: (character: Character) => void;
+  editingCharacter: Character | null;
+  isBookContextModalOpen: boolean;
+  setIsBookContextModalOpen: (open: boolean) => void;
+  handleBookSettingsSave: (data: Partial<Book>) => void;
+  currentBook: Book | null;
+  isChapterContextModalOpen: boolean;
+  setIsChapterContextModalOpen: (open: boolean) => void;
+  handleChapterSettingsSave: (data: Partial<Chapter>) => void;
+  currentChapter: Chapter | null;
+}>(
+  ({
+    isCharacterModalOpen,
+    setIsCharacterModalOpen,
+    handleSaveCharacter,
+    editingCharacter,
+    isBookContextModalOpen,
+    setIsBookContextModalOpen,
+    handleBookSettingsSave,
+    currentBook,
+    isChapterContextModalOpen,
+    setIsChapterContextModalOpen,
+    handleChapterSettingsSave,
+    currentChapter,
+  }) => {
+    return (
+      <>
+        <CharacterModal
+          isOpen={isCharacterModalOpen}
+          onClose={() => setIsCharacterModalOpen(false)}
+          onSave={handleSaveCharacter}
+          initialData={editingCharacter || undefined}
+        />
+        <BookContextModal
+          isOpen={isBookContextModalOpen && !!currentBook}
+          onClose={() => setIsBookContextModalOpen(false)}
+          onSave={handleBookSettingsSave}
+          initialData={currentBook || undefined}
+        />
+        <ChapterContextModal
+          isOpen={isChapterContextModalOpen && !!currentChapter}
+          onClose={() => setIsChapterContextModalOpen(false)}
+          onSave={handleChapterSettingsSave}
+          initialData={currentChapter || undefined}
+          bookTitle={currentBook?.title}
+        />
+      </>
+    );
+  }
+);
+
+BookWriterModals.displayName = 'BookWriterModals';
+
 export default function BookWriterPage() {
   const { state, dispatch } = useUser();
   const { user } = state;
@@ -142,6 +221,7 @@ export default function BookWriterPage() {
   };
 
   const handleParagraphSave = (chapterId: string, pIndex: number, newContent: string) => {
+    // Update local state for immediate UI feedback
     setLocalChapters((prev) =>
       prev.map((ch) => {
         if (ch.id !== chapterId) return ch;
@@ -150,6 +230,24 @@ export default function BookWriterPage() {
         return { ...ch, content: paragraphs.join('\n\n') };
       })
     );
+
+    // Also update the user's books in global state for persistence
+    if (currentBook && user) {
+      const updatedChapters = localChapters.map((ch) => {
+        if (ch.id !== chapterId) return ch;
+        const paragraphs = ch.content.split('\n\n');
+        paragraphs[pIndex] = newContent;
+        return { ...ch, content: paragraphs.join('\n\n') };
+      });
+
+      const updatedBook = { ...currentBook, chapters: updatedChapters };
+      const updatedBooks = user.books.map((b) => (b.id === currentBook.id ? updatedBook : b));
+
+      dispatch({
+        type: 'UPDATE_USER',
+        payload: { ...user, books: updatedBooks },
+      });
+    }
   };
 
   const handleSaveCharacter = (character: Character) => {
@@ -218,24 +316,19 @@ export default function BookWriterPage() {
         </div>
 
         {/* MODALS - Always render for consistent component tree */}
-        <CharacterModal
-          isOpen={isCharacterModalOpen}
-          onClose={() => setIsCharacterModalOpen(false)}
-          onSave={handleSaveCharacter}
-          initialData={editingCharacter}
-        />
-        <BookContextModal
-          isOpen={isBookContextModalOpen && !!currentBook}
-          onClose={() => setIsBookContextModalOpen(false)}
-          onSave={handleBookSettingsSave}
-          initialData={currentBook || undefined}
-        />
-        <ChapterContextModal
-          isOpen={isChapterContextModalOpen && !!currentChapter}
-          onClose={() => setIsChapterContextModalOpen(false)}
-          onSave={handleChapterSettingsSave}
-          initialData={currentChapter || undefined}
-          bookTitle={currentBook?.title}
+        <BookWriterModals
+          isCharacterModalOpen={isCharacterModalOpen}
+          setIsCharacterModalOpen={setIsCharacterModalOpen}
+          handleSaveCharacter={handleSaveCharacter}
+          editingCharacter={editingCharacter}
+          isBookContextModalOpen={isBookContextModalOpen}
+          setIsBookContextModalOpen={setIsBookContextModalOpen}
+          handleBookSettingsSave={handleBookSettingsSave}
+          currentBook={currentBook}
+          isChapterContextModalOpen={isChapterContextModalOpen}
+          setIsChapterContextModalOpen={setIsChapterContextModalOpen}
+          handleChapterSettingsSave={handleChapterSettingsSave}
+          currentChapter={currentChapter}
         />
       </>
     );
@@ -549,15 +642,7 @@ export default function BookWriterPage() {
                 <div className='pt-4 border-t border-gray-100 dark:border-gray-700'>
                   <h4 className='text-xs font-bold text-gray-400 uppercase tracking-wider mb-3'>Quick Add</h4>
                   <div className='grid grid-cols-3 gap-2'>
-                    {['Location', 'Lore', 'Magic', 'Tech', 'Faction'].map((cat) => (
-                      <button
-                        key={cat}
-                        className='flex flex-col items-center justify-center p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors'
-                      >
-                        <CategoryIcon category={cat as WorldCategory} size={14} />
-                        <span className='text-[10px] mt-1 text-gray-600 dark:text-gray-400'>{cat}</span>
-                      </button>
-                    ))}
+                    <QuickAddButtons />
                   </div>
                 </div>
               </div>
@@ -567,24 +652,19 @@ export default function BookWriterPage() {
       </div>
 
       {/* MODALS */}
-      <CharacterModal
-        isOpen={isCharacterModalOpen}
-        onClose={() => setIsCharacterModalOpen(false)}
-        onSave={handleSaveCharacter}
-        initialData={editingCharacter}
-      />
-      <BookContextModal
-        isOpen={isBookContextModalOpen && !!currentBook}
-        onClose={() => setIsBookContextModalOpen(false)}
-        onSave={handleBookSettingsSave}
-        initialData={currentBook || undefined}
-      />
-      <ChapterContextModal
-        isOpen={isChapterContextModalOpen && !!currentChapter}
-        onClose={() => setIsChapterContextModalOpen(false)}
-        onSave={handleChapterSettingsSave}
-        initialData={currentChapter || undefined}
-        bookTitle={currentBook?.title}
+      <BookWriterModals
+        isCharacterModalOpen={isCharacterModalOpen}
+        setIsCharacterModalOpen={setIsCharacterModalOpen}
+        handleSaveCharacter={handleSaveCharacter}
+        editingCharacter={editingCharacter}
+        isBookContextModalOpen={isBookContextModalOpen}
+        setIsBookContextModalOpen={setIsBookContextModalOpen}
+        handleBookSettingsSave={handleBookSettingsSave}
+        currentBook={currentBook}
+        isChapterContextModalOpen={isChapterContextModalOpen}
+        setIsChapterContextModalOpen={setIsChapterContextModalOpen}
+        handleChapterSettingsSave={handleChapterSettingsSave}
+        currentChapter={currentChapter}
       />
     </>
   );

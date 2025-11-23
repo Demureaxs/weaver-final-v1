@@ -46,8 +46,15 @@ export const ChapterContextModal = ({ isOpen, onClose, onSave, initialData, user
     setIsGenerating(true);
 
     try {
-      const apiKey = userApiKey || process.env.API_KEY;
-      const ai = new GoogleGenAI({ apiKey: apiKey });
+      const apiKey = userApiKey || process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+
+      if (!apiKey) {
+        console.error('Google API key not found. Please set NEXT_PUBLIC_GOOGLE_API_KEY in .env');
+        alert('AI generation failed: API key not configured');
+        return;
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
 
       const prompt = `Generate a concise chapter summary/breakdown for a chapter titled "${formData.title}" in the book "${bookTitle || 'Unknown'}". 
       User Context/Input: "${aiPrompt}". 
@@ -65,7 +72,7 @@ export const ChapterContextModal = ({ isOpen, onClose, onSave, initialData, user
       setAiPrompt('');
     } catch (e) {
       console.error('AI Generation failed', e);
-      handleChange('summary', `(AI Error) Generated content based on: ${aiPrompt}`);
+      alert('AI generation failed. Please check your API key and try again.');
     } finally {
       setIsGenerating(false);
     }

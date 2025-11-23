@@ -1,4 +1,3 @@
-
 export interface Article {
   id: string;
   title: string;
@@ -55,7 +54,7 @@ export interface Book {
   setting?: string; // The high-level environment/world description
   chapters: Chapter[];
   characters: Character[];
-  worldBible: WorldItem[]; 
+  worldBible: WorldItem[];
   createdAt: string;
   updatedAt: string;
 }
@@ -86,4 +85,5 @@ export type Action =
   | { type: 'ADD_ARTICLE'; payload: Article }
   | { type: 'SET_SITEMAP'; payload: SitemapLink[] }
   | { type: 'TOGGLE_KEYWORD'; payload: string }
+  | { type: 'UPDATE_USER'; payload: Partial<UserProfile> }
   | { type: 'TOGGLE_THEME' };

@@ -51,8 +51,15 @@ export const BookContextModal = ({ isOpen, onClose, onSave, initialData, userApi
     setActiveField(field);
 
     try {
-      const apiKey = userApiKey || process.env.API_KEY;
-      const ai = new GoogleGenAI({ apiKey: apiKey });
+      const apiKey = userApiKey || process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+
+      if (!apiKey) {
+        console.error('Google API key not found. Please set NEXT_PUBLIC_GOOGLE_API_KEY in .env');
+        alert('AI generation failed: API key not configured');
+        return;
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
 
       const prompt = `Generate a concise (max 50 words) ${field} description for a book titled "${initialData?.title || 'Unknown'}" (${
         initialData?.genre || 'Unknown genre'
@@ -72,7 +79,7 @@ export const BookContextModal = ({ isOpen, onClose, onSave, initialData, userApi
       setAiPrompt('');
     } catch (e) {
       console.error('AI Generation failed', e);
-      handleChange(field, `(AI Error) Generated content for ${field}`);
+      alert('AI generation failed. Please check your API key and try again.');
     } finally {
       setIsGenerating(false);
       setActiveField('');
