@@ -18,55 +18,32 @@ export default function KeywordsPage() {
     setIsSearching(true);
     setKeywordResults(null);
 
-    let suggestions: any[] = [];
-    const augmentData = (term: string) => ({
-      keyword: term,
-      volume: Math.floor(Math.random() * 10000) + 50,
-      difficulty: Math.floor(Math.random() * 100),
-    });
-
     try {
-      const res = await fetch(`https://suggestqueries.google.com/complete/search?client=firefox&ds=yt&q=${encodeURIComponent(seedKeyword)}`);
-      if (!res.ok) throw new Error('CORS');
+      const res = await fetch('/api/keywords/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword: seedKeyword }),
+      });
+
+      if (!res.ok) throw new Error('Failed to fetch suggestions');
       const data = await res.json();
-      suggestions = data[1].map(augmentData);
+      // data.suggestions contains categorized arrays of {keyword, searchVolume, difficulty}
+      const { suggestions } = data;
+      // Ensure shape matches view expectations (questions, prepositions, comparisons, alphabetical)
+      setKeywordResults(suggestions);
     } catch (err) {
-      try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: `Generate 20 popular Google search autocomplete suggestions for the keyword "${seedKeyword}". Return ONLY a JSON array of strings. Example: ["keyword one", "keyword two"]`,
-          config: { responseMimeType: 'application/json' },
-        });
-        const text = response.text;
-        if (text) {
-          suggestions = JSON.parse(text).map(augmentData);
-        }
-      } catch (aiErr) {
-        console.error(aiErr);
-      }
-
-      if (!suggestions.length) {
-        await new Promise((r) => setTimeout(r, 800));
-        suggestions = [`${seedKeyword} guide`, `${seedKeyword} tips`, `best ${seedKeyword}`, `how to ${seedKeyword}`].map(augmentData);
-      }
+      console.error('Keyword suggestion error:', err);
+      // Fallback mock data (same shape as suggestions)
+      const mock = {
+        questions: [],
+        prepositions: [],
+        comparisons: [],
+        alphabetical: [],
+      };
+      setKeywordResults(mock);
+    } finally {
+      setIsSearching(false);
     }
-
-    const categorized = { questions: [], prepositions: [], general: [] };
-    const qWords = ['who', 'what', 'where', 'when', 'why', 'how'];
-    const pWords = ['for', 'with', 'near', 'vs'];
-
-    suggestions.forEach((item) => {
-      const lower = item.keyword.toLowerCase();
-      // @ts-ignore
-      if (qWords.some((q) => lower.startsWith(q + ' '))) categorized.questions.push(item);
-      // @ts-ignore
-      else if (pWords.some((p) => lower.includes(' ' + p + ' '))) categorized.prepositions.push(item);
-      // @ts-ignore
-      else categorized.general.push(item);
-    });
-    setKeywordResults(categorized);
-    setIsSearching(false);
   };
 
   return (

@@ -50,8 +50,8 @@ export const KeywordResearchView = ({
       </div>
       {keywordResults && (
         <div className='grid gap-6'>
-          {['questions', 'prepositions', 'general'].map((type) => {
-            if (keywordResults[type].length === 0) return null;
+          {['questions', 'prepositions', 'comparisons', 'alphabetical'].map((type) => {
+            if (!keywordResults || !keywordResults[type] || keywordResults[type].length === 0) return null;
             return (
               <div key={type} className='bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 overflow-hidden'>
                 <div className='p-4 border-b flex justify-between items-center bg-gray-200 dark:bg-gray-900/50 border-gray-100 dark:border-gray-700'>
