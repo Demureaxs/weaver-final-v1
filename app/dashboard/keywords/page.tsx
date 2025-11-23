@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useUser } from '../../../context/UserContext';
+import { useUserData, useUserActions } from '../../../context/UserContext';
 import { KeywordResearchView } from '../../../views/KeywordResearchView';
 import { GoogleGenAI } from '@google/genai';
 
 export default function KeywordsPage() {
-  const { state, dispatch } = useUser();
+  const state = useUserData();
+  const dispatch = useUserActions();
   const { user } = state;
 
   const [seedKeyword, setSeedKeyword] = useState('');
@@ -54,7 +55,9 @@ export default function KeywordsPage() {
       isSearching={isSearching}
       keywordResults={keywordResults}
       savedKeywords={user?.keywords || []}
-      toggleKeyword={(kw: string) => dispatch({ type: 'TOGGLE_KEYWORD', payload: kw })}
+      // TODO: This should trigger a backend API call to update the user's keywords.
+      // The TOGGLE_KEYWORD action is no longer handled by UserContext.
+      toggleKeyword={(kw: string) => { /* dispatch({ type: 'TOGGLE_KEYWORD', payload: kw }) */ }}
     />
   );
 }

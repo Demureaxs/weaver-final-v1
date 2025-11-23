@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useEffect, ReactNode } from 'react';
-import { UserProvider, useUser } from '../context/UserContext';
+import { UserProvider, useUserData } from '../context/UserContext';
 import { AuthInitializer } from '../components/auth/AuthInitializer';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 
 const ThemeWatcher = () => {
-  const { state } = useUser();
+  const state = useUserData();
   useEffect(() => {
     if (state.theme === 'dark') {
       document.documentElement.classList.add('dark');

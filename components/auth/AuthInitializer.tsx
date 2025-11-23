@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useUser } from '../../context/UserContext';
+import { useUserActions } from '../../context/UserContext';
 
 export const AuthInitializer = () => {
-  const { dispatch } = useUser();
+  const dispatch = useUserActions();
 
   useEffect(() => {
     // Check for existing session on mount

@@ -2,12 +2,13 @@
 
 import React from 'react';
 import { Sparkles, User, LogOut, Sun, Moon } from 'lucide-react';
-import { INITIAL_MOCK_DB } from '../../lib/firebase';
-import { useUser } from '../../context/UserContext';
+import { INITIAL_MOCK_DB } from '../../lib/mockdb';
+import { useUserData, useUserActions } from '../../context/UserContext';
 import { useRouter } from 'next/navigation';
 
 export const Header = () => {
-  const { state, dispatch } = useUser();
+  const state = useUserData();
+  const dispatch = useUserActions();
   const { user } = state;
   const router = useRouter();
 
@@ -58,7 +59,7 @@ export const Header = () => {
                 </button>
                 <div className='absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 p-2 hidden group-hover:block z-50'>
                   <div className='text-xs font-bold text-gray-400 px-2 py-1 uppercase'>Switch User</div>
-                  {Object.values(INITIAL_MOCK_DB).map((u: any) => (
+                  {Object.values(INITIAL_MOCK_DB.users).map((u: any) => (
                     <button
                       key={u.uid}
                       onClick={() => switchMockUser(u.uid)}

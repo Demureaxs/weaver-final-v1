@@ -22,7 +22,7 @@ import {
   Book as BookIcon,
   Bookmark,
 } from 'lucide-react';
-import { useUser } from '../../../context/UserContext';
+import { useUserData, useUserActions } from '../../../context/UserContext';
 import { Book, Chapter, Character, WorldItem, WorldCategory } from '../../../lib/types';
 import { EditableBlock } from '../../../components/editor/EditableBlock';
 import { CharacterModal } from '../../../components/book/CharacterModal';
@@ -127,7 +127,8 @@ const BookWriterModals = React.memo<{
 BookWriterModals.displayName = 'BookWriterModals';
 
 export default function BookWriterPage() {
-  const { state, dispatch } = useUser();
+  const state = useUserData();
+  const dispatch = useUserActions();
   const { user } = state;
 
   // State
@@ -149,7 +150,9 @@ export default function BookWriterPage() {
   const scrollRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Derived State
-  const books = user?.books || [];
+  // TODO: Books should be fetched from an API endpoint specific to the user, not directly from user object.
+  // For now, this will always be empty, leading to the 'No Books Found' state.
+  const books: Book[] = []; // user?.books || [];
   const currentBook = books.find((b) => b.id === activeBookId) || null;
   const currentChapter = localChapters.find((c) => c.id === activeChapterId) || null;
 
@@ -216,7 +219,8 @@ export default function BookWriterPage() {
       alert(`Not enough credits! You need ${cost} but have ${user?.credits || 0}. Upgrade to continue.`);
       return false;
     }
-    dispatch({ type: 'DEDUCT_CREDITS', payload: cost });
+    // TODO: This should trigger a backend API call to deduct credits for the user
+    // dispatch({ type: 'DEDUCT_CREDITS', payload: cost });
     return true;
   };
 
@@ -231,23 +235,25 @@ export default function BookWriterPage() {
       })
     );
 
+    // TODO: This should trigger a backend API call to save the chapter content for the specific book and user.
+    // The user.books array no longer exists on the User object in context.
     // Also update the user's books in global state for persistence
-    if (currentBook && user) {
-      const updatedChapters = localChapters.map((ch) => {
-        if (ch.id !== chapterId) return ch;
-        const paragraphs = ch.content.split('\n\n');
-        paragraphs[pIndex] = newContent;
-        return { ...ch, content: paragraphs.join('\n\n') };
-      });
+    // if (currentBook && user) {
+    //   const updatedChapters = localChapters.map((ch) => {
+    //     if (ch.id !== chapterId) return ch;
+    //     const paragraphs = ch.content.split('\n\n');
+    //     paragraphs[pIndex] = newContent;
+    //     return { ...ch, content: paragraphs.join('\n\n') };
+    //   });
 
-      const updatedBook = { ...currentBook, chapters: updatedChapters };
-      const updatedBooks = user.books.map((b) => (b.id === currentBook.id ? updatedBook : b));
+    //   const updatedBook = { ...currentBook, chapters: updatedChapters };
+    //   const updatedBooks = user.books.map((b) => (b.id === currentBook.id ? updatedBook : b));
 
-      dispatch({
-        type: 'UPDATE_USER',
-        payload: { ...user, books: updatedBooks },
-      });
-    }
+    //   dispatch({
+    //     type: 'UPDATE_USER',
+    //     payload: { ...user, books: updatedBooks },
+    //   });
+    // }
   };
 
   const handleSaveCharacter = (character: Character) => {

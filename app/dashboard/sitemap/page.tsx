@@ -1,28 +1,30 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useUser } from '../../../context/UserContext';
+import { useUserData, useUserActions } from '../../../context/UserContext';
 import { SitemapView } from '../../../views/SitemapView';
-import { SitemapLink } from '../../../lib/types';
 
 export default function SitemapPage() {
-  const { state, dispatch } = useUser();
+  const state = useUserData();
+  const dispatch = useUserActions();
   const { user } = state;
 
   const [sitemapInputType, setSitemapInputType] = useState<'url' | 'text'>('url');
   const [sitemapUrl, setSitemapUrl] = useState('');
   const [sitemapText, setSitemapText] = useState('');
-  const [discoveredUrls, setDiscoveredUrls] = useState<SitemapLink[]>([]);
+  // TODO: discoveredUrls should be initialized by fetching the user's sitemap from a backend API.
+  const [discoveredUrls, setDiscoveredUrls] = useState<any[]>([]);
   const [sitemapStatus, setSitemapStatus] = useState('idle');
   const [sitemapError, setSitemapError] = useState('');
   const [omitBaseUrl, setOmitBaseUrl] = useState(false);
 
-  useEffect(() => {
-    if (user?.sitemap && discoveredUrls.length === 0) {
-      setDiscoveredUrls(user.sitemap);
-      setSitemapStatus('parsed');
-    }
-  }, [user]);
+  // TODO: This useEffect should be replaced with a call to a backend API to fetch the user's sitemap.
+  // useEffect(() => {
+  //   if (user?.sitemap && discoveredUrls.length === 0) {
+  //     setDiscoveredUrls(user.sitemap);
+  //     setSitemapStatus('parsed');
+  //   }
+  // }, [user]);
 
   const handleSitemapFetch = async () => {
     setSitemapStatus('loading');
@@ -46,7 +48,9 @@ export default function SitemapPage() {
         return;
       }
 
-      const links: SitemapLink[] = data.links || [];
+      // TODO: The links should now be of type Sitemap from lib/types, not SitemapLink.
+      // And should include userId
+      const links: any[] = data.links || [];
 
       if (links.length === 0) {
         setSitemapError('No URLs found. Try pasting the XML content directly.');
@@ -54,7 +58,9 @@ export default function SitemapPage() {
       } else {
         setDiscoveredUrls(links);
         setSitemapStatus('parsed');
-        dispatch({ type: 'SET_SITEMAP', payload: links });
+        // TODO: This should trigger a backend API call to save the new sitemap for the user.
+        // The SET_SITEMAP action is no longer handled by UserContext.
+        // dispatch({ type: 'SET_SITEMAP', payload: links });
       }
     } catch (error: any) {
       setSitemapError(`Error: ${error.message}`);

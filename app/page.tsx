@@ -2,12 +2,13 @@
 
 import React, { useEffect } from 'react';
 import { AuthScreen } from '../components/auth/AuthScreen';
-import { useUser } from '../context/UserContext';
-import { INITIAL_MOCK_DB } from '../lib/firebase';
+import { useUserData, useUserActions } from '../context/UserContext';
+import { INITIAL_MOCK_DB } from '../lib/mockdb';
 import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
-  const { state, dispatch } = useUser();
+  const state = useUserData();
+  const dispatch = useUserActions();
   const { user, isLoading } = state;
   const router = useRouter();
 

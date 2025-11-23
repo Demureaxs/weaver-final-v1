@@ -1,6 +1,25 @@
+// Core Data Models
+
+/**
+ * Represents the core user entity.
+ * This will be the central model, linked from other data models.
+ */
+export interface User {
+  uid: string; // From Firebase Auth
+  email: string;
+  displayName?: string;
+  credits: number;
+  plan: string;
+  keywords: string[];
+}
+
+/**
+ * Represents a single article written by a user.
+ */
 export interface Article {
   id: string;
-  title: string;
+  userId: string; // Foreign key to User
+  title:string;
   content: string;
   snippet: string;
   status: 'Draft' | 'Published';
@@ -9,11 +28,20 @@ export interface Article {
   metadata?: any;
 }
 
-export interface SitemapLink {
-  url: string;
-  text: string;
-  lastMod?: string;
+/**
+ * Represents a user's sitemap.
+ * A user can have one sitemap.
+ */
+export interface Sitemap {
+    id: string;
+    userId: string; // Foreign key to User
+    url: string;
+    links: { url: string; text: string; lastMod?: string }[];
+    createdAt: string;
+    updatedAt: string;
 }
+
+// Book & Writing Related Models
 
 export interface Character {
   id: string;
@@ -44,8 +72,12 @@ export interface Chapter {
   order: number;
 }
 
+/**
+ * Represents a single book written by a user.
+ */
 export interface Book {
   id: string;
+  userId: string; // Foreign key to User
   title: string;
   genre: string;
   summary: string; // Logline
@@ -59,31 +91,17 @@ export interface Book {
   updatedAt: string;
 }
 
-export interface UserProfile {
-  uid: string;
-  email: string;
-  displayName: string;
-  credits: number;
-  plan: string;
-  articles: Article[];
-  sitemap: SitemapLink[];
-  keywords: string[];
-  activeCount: number;
-  books: Book[];
-}
+
+// Frontend State Management
 
 export interface UserState {
-  user: UserProfile | null;
+  user: User | null;
   isLoading: boolean;
   theme: 'light' | 'dark';
 }
 
 export type Action =
-  | { type: 'LOGIN'; payload: UserProfile }
+  | { type: 'LOGIN'; payload: User }
   | { type: 'LOGOUT' }
-  | { type: 'DEDUCT_CREDITS'; payload: number }
-  | { type: 'ADD_ARTICLE'; payload: Article }
-  | { type: 'SET_SITEMAP'; payload: SitemapLink[] }
-  | { type: 'TOGGLE_KEYWORD'; payload: string }
-  | { type: 'UPDATE_USER'; payload: Partial<UserProfile> }
+  | { type: 'UPDATE_USER'; payload: Partial<User> }
   | { type: 'TOGGLE_THEME' };

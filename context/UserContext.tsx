@@ -1,59 +1,26 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { UserProfile, UserState, Action, SitemapLink } from '../lib/types';
+import { User, UserState, Action } from '../lib/types';
 
+// 1. Define the initial state with the correct types
 const initialState: UserState = {
   user: null,
   isLoading: true,
   theme: 'light',
 };
 
-const UserContext = createContext<
-  | {
-      state: UserState;
-      dispatch: React.Dispatch<Action>;
-    }
-  | undefined
->(undefined);
+// 2. Create two separate contexts: one for data, one for actions
+const UserDataContext = createContext<UserState | undefined>(undefined);
+const UserActionsContext = createContext<React.Dispatch<Action> | undefined>(undefined);
 
+// 3. Simplify the reducer to match the new, leaner data structure
 const userReducer = (state: UserState, action: Action): UserState => {
   switch (action.type) {
     case 'LOGIN':
       return { ...state, user: action.payload, isLoading: false };
     case 'LOGOUT':
       return { ...state, user: null, isLoading: false };
-    case 'DEDUCT_CREDITS':
-      if (!state.user) return state;
-      return {
-        ...state,
-        user: { ...state.user, credits: Math.max(0, state.user.credits - action.payload) },
-      };
-    case 'ADD_ARTICLE':
-      if (!state.user) return state;
-      return {
-        ...state,
-        user: {
-          ...state.user,
-          articles: [action.payload, ...state.user.articles],
-          activeCount: (state.user.activeCount || 0) + 1,
-        },
-      };
-    case 'SET_SITEMAP':
-      if (!state.user) return state;
-      return {
-        ...state,
-        user: { ...state.user, sitemap: action.payload },
-      };
-    case 'TOGGLE_KEYWORD':
-      if (!state.user) return state;
-      const kw = action.payload;
-      const exists = state.user.keywords.includes(kw);
-      const newKeywords = exists ? state.user.keywords.filter((k) => k !== kw) : [...state.user.keywords, kw];
-      return {
-        ...state,
-        user: { ...state.user, keywords: newKeywords },
-      };
     case 'UPDATE_USER':
       if (!state.user) return state;
       return {
@@ -67,16 +34,32 @@ const userReducer = (state: UserState, action: Action): UserState => {
   }
 };
 
+// 4. Create a single provider that provides both contexts
 export const UserProvider = ({ children }: { children?: ReactNode }) => {
   const [state, dispatch] = useReducer(userReducer, initialState);
 
-  return <UserContext.Provider value={{ state, dispatch }}>{children}</UserContext.Provider>;
+  return (
+    <UserDataContext.Provider value={state}>
+      <UserActionsContext.Provider value={dispatch}>
+        {children}
+      </UserActionsContext.Provider>
+    </UserDataContext.Provider>
+  );
 };
 
-export const useUser = () => {
-  const context = useContext(UserContext);
+// 5. Create two separate hooks to consume the contexts
+export const useUserData = () => {
+  const context = useContext(UserDataContext);
   if (!context) {
-    throw new Error('useUser must be used within a UserProvider');
+    throw new Error('useUserData must be used within a UserProvider');
+  }
+  return context;
+};
+
+export const useUserActions = () => {
+  const context = useContext(UserActionsContext);
+  if (!context) {
+    throw new Error('useUserActions must be used within a UserProvider');
   }
   return context;
 };

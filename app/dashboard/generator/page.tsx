@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useUser } from '../../../context/UserContext';
+import { useUserData, useUserActions } from '../../../context/UserContext';
 import { GeneratorView } from '../../../views/GeneratorView';
 import { Article } from '../../../lib/types';
 import { GoogleGenAI } from '@google/genai';
 
 export default function GeneratorPage() {
-  const { state, dispatch } = useUser();
+  const state = useUserData();
+  const dispatch = useUserActions();
   const { user } = state;
 
   // Local State
@@ -28,7 +29,8 @@ export default function GeneratorPage() {
       alert(`Not enough credits! You need ${cost} but have ${user?.credits || 0}. Upgrade to continue.`);
       return false;
     }
-    dispatch({ type: 'DEDUCT_CREDITS', payload: cost });
+    // TODO: This should trigger a backend API call to deduct credits for the user
+    // dispatch({ type: 'DEDUCT_CREDITS', payload: cost });
     return true;
   };
 
@@ -49,11 +51,9 @@ export default function GeneratorPage() {
 
     try {
       setStatusMessage(`Drafting ${wordCount} words on "${keyword}"...`);
-      const internalLinks =
-        user?.sitemap
-          ?.slice(0, 5)
-          .map((l) => l.url)
-          .join(', ') || '';
+      // TODO: Sitemap links should be fetched from a user-specific API endpoint.
+      // For now, this will just be an empty string.
+      const internalLinks = ''; // user?.sitemap?.slice(0, 5).map((l) => l.url).join(', ') || '';
       let internalLinksContext = internalLinks
         ? `SEO & LINKING (CRITICAL): INTERNAL LINKS: Naturally integrate 3-5 links from: ${internalLinks}.`
         : `SEO & LINKING: EXTERNAL LINKS: Include 2-3 high-authority external links.`;
@@ -92,6 +92,7 @@ export default function GeneratorPage() {
 
       const newArticle: Article = {
         id: Date.now().toString(),
+        // TODO: The userId should be added here
         title: keyword,
         content: markdown,
         snippet: markdown.substring(0, 100) + '...',
@@ -100,7 +101,9 @@ export default function GeneratorPage() {
         updatedAt: new Date().toISOString(),
       };
 
-      dispatch({ type: 'ADD_ARTICLE', payload: newArticle });
+      // TODO: This should trigger a backend API call to save the new article for the user.
+      // The ADD_ARTICLE action is no longer handled by UserContext.
+      // dispatch({ type: 'ADD_ARTICLE', payload: newArticle });
 
       setStatus('success');
       setStatusMessage('Content ready!');
@@ -132,7 +135,8 @@ export default function GeneratorPage() {
       includeImage={includeImage}
       setIncludeImage={setIncludeImage}
       savedKeywords={user?.keywords || []}
-      savedSitemaps={user?.sitemap?.map((s: any) => s.url) || []}
+      // TODO: savedSitemaps should be fetched from a user-specific API endpoint.
+      savedSitemaps={[]} // user?.sitemap?.map((s: any) => s.url) || []
       generateBlog={generateBlog}
       status={status}
       statusMessage={statusMessage}

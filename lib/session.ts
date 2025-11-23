@@ -1,8 +1,8 @@
 import { SessionOptions } from 'iron-session';
-import { UserProfile } from './types';
+import { User } from './types';
 
 export interface SessionData {
-  user?: UserProfile;
+  user?: User;
   isLoggedIn: boolean;
 }
 
@@ -14,6 +14,7 @@ export const sessionOptions: SessionOptions = {
     httpOnly: true,
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7, // 7 days
+    path: '/',
   },
 };
 
