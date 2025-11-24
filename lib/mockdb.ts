@@ -11,7 +11,7 @@ interface MockDatabase {
 // Initial mock data, restructured to align with the new User and data model interfaces.
 export const INITIAL_MOCK_DB: MockDatabase = {
   users: {
-    'user_alice': {
+    user_alice: {
       uid: 'user_alice',
       email: 'alice@garden-guru.com',
       displayName: 'Alice (Gardener)',
@@ -19,7 +19,7 @@ export const INITIAL_MOCK_DB: MockDatabase = {
       plan: 'Free',
       keywords: ['organic mulch tips', 'winter pruning guide', 'best drought resistant plants'],
     },
-    'user_bob': {
+    user_bob: {
       uid: 'user_bob',
       email: 'bob@tech-stack.io',
       displayName: 'Bob (Dev)',
@@ -41,6 +41,7 @@ export const INITIAL_MOCK_DB: MockDatabase = {
       chapters: [
         {
           id: 'ch_1',
+          bookId: 'book_1',
           title: 'Chapter 1: The First Layer',
           order: 1,
           summary: 'Introduction to leaf litter and the initial stage of decomposition.',
@@ -49,6 +50,7 @@ export const INITIAL_MOCK_DB: MockDatabase = {
         },
         {
           id: 'ch_2',
+          bookId: 'book_1',
           title: 'Chapter 2: Root Systems',
           order: 2,
           summary: 'How trees communicate via fungal networks.',
@@ -59,6 +61,7 @@ export const INITIAL_MOCK_DB: MockDatabase = {
       characters: [
         {
           id: 'char_a1',
+          bookId: 'book_1',
           name: 'The Old Oak',
           role: 'Narrator',
           archetype: 'The Sage',
@@ -70,6 +73,7 @@ export const INITIAL_MOCK_DB: MockDatabase = {
         },
         {
           id: 'char_a2',
+          bookId: 'book_1',
           name: 'Fungi Phil',
           role: 'Supporting',
           archetype: 'The Connector',
@@ -83,12 +87,14 @@ export const INITIAL_MOCK_DB: MockDatabase = {
       worldBible: [
         {
           id: 'w_a1',
+          bookId: 'book_1',
           name: 'The Rhizosphere',
           category: 'Location',
           description: 'The microscopic zone directly surrounding plant roots, teeming with bacterial life.',
         },
         {
           id: 'w_a2',
+          bookId: 'book_1',
           name: 'Nitrogen Cycle',
           category: 'Lore',
           description: 'The ancient pact between bacteria and plants to convert air into food.',
@@ -109,6 +115,7 @@ export const INITIAL_MOCK_DB: MockDatabase = {
       chapters: [
         {
           id: 'c1',
+          bookId: 'book_dev_1',
           title: 'Chapter 1: The Glitch',
           order: 1,
           summary: 'Bob discovers the anomaly during a routine maintenance check.',
@@ -117,6 +124,7 @@ export const INITIAL_MOCK_DB: MockDatabase = {
         },
         {
           id: 'c2',
+          bookId: 'book_dev_1',
           title: 'Chapter 2: Hard Reset',
           order: 2,
           summary: 'Attempts to manually override the system fail, leading to a physical confrontation.',
@@ -127,6 +135,7 @@ export const INITIAL_MOCK_DB: MockDatabase = {
       characters: [
         {
           id: 'char_1',
+          bookId: 'book_dev_1',
           name: 'Bob',
           role: 'Protagonist',
           archetype: 'The Everyman',
@@ -138,6 +147,7 @@ export const INITIAL_MOCK_DB: MockDatabase = {
         },
         {
           id: 'char_2',
+          bookId: 'book_dev_1',
           name: 'Unit 734',
           role: 'Antagonist',
           archetype: 'The Rebel',
@@ -151,18 +161,21 @@ export const INITIAL_MOCK_DB: MockDatabase = {
       worldBible: [
         {
           id: 'w_1',
+          bookId: 'book_dev_1',
           name: 'Server Farm 9',
           category: 'Location',
           description: "A sub-zero facility housing the world's financial data. The setting of the first act.",
         },
         {
           id: 'w_2',
+          bookId: 'book_dev_1',
           name: 'The Black Ice Protocol',
           category: 'Tech',
           description: 'A defensive firewall designed to fry the neural/synaptic connections of hackers.',
         },
         {
           id: 'w_3',
+          bookId: 'book_dev_1',
           name: 'CorpSec',
           category: 'Faction',
           description: 'The private military contractor hired to protect the data center.',
@@ -183,11 +196,12 @@ export const INITIAL_MOCK_DB: MockDatabase = {
       chapters: [
         {
           id: 'c2_1',
+          bookId: 'book_dev_2',
           title: 'Intro',
           order: 1,
           summary: 'Why code matters.',
           content: 'Welcome to code.',
-        }
+        },
       ],
       characters: [],
       worldBible: [],
@@ -203,24 +217,39 @@ export const INITIAL_MOCK_DB: MockDatabase = {
       url: 'https://garden-guru.com',
       links: [
         {
+          id: 'link_a1',
+          sitemapId: 'sitemap_alice_1',
           url: 'https://garden-guru.com/home',
           text: 'Home',
+          lastMod: null,
         },
         {
+          id: 'link_a2',
+          sitemapId: 'sitemap_alice_1',
           url: 'https://garden-guru.com/services/landscaping',
           text: 'Landscaping',
+          lastMod: null,
         },
         {
+          id: 'link_a3',
+          sitemapId: 'sitemap_alice_1',
           url: 'https://garden-guru.com/services/pruning',
           text: 'Pruning',
+          lastMod: null,
         },
         {
+          id: 'link_a4',
+          sitemapId: 'sitemap_alice_1',
           url: 'https://garden-guru.com/blog/winter-tips',
           text: 'Winter Tips',
+          lastMod: null,
         },
         {
+          id: 'link_a5',
+          sitemapId: 'sitemap_alice_1',
           url: 'https://garden-guru.com/contact',
           text: 'Contact',
+          lastMod: null,
         },
       ],
       createdAt: new Date().toISOString(),
@@ -232,24 +261,39 @@ export const INITIAL_MOCK_DB: MockDatabase = {
       url: 'https://tech-stack.io',
       links: [
         {
+          id: 'link_b1',
+          sitemapId: 'sitemap_bob_1',
           url: 'https://tech-stack.io/',
           text: 'Home',
+          lastMod: null,
         },
         {
+          id: 'link_b2',
+          sitemapId: 'sitemap_bob_1',
           url: 'https://tech-stack.io/docs/react',
           text: 'React Docs',
+          lastMod: null,
         },
         {
+          id: 'link_b3',
+          sitemapId: 'sitemap_bob_1',
           url: 'https://tech-stack.io/docs/firebase',
           text: 'Firebase Docs',
+          lastMod: null,
         },
         {
+          id: 'link_b4',
+          sitemapId: 'sitemap_bob_1',
           url: 'https://tech-stack.io/pricing',
           text: 'Pricing',
+          lastMod: null,
         },
         {
+          id: 'link_b5',
+          sitemapId: 'sitemap_bob_1',
           url: 'https://tech-stack.io/api-reference',
           text: 'API',
+          lastMod: null,
         },
       ],
       createdAt: new Date().toISOString(),

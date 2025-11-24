@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { Sparkles, User, LogOut, Sun, Moon } from 'lucide-react';
-import { INITIAL_MOCK_DB } from '../../lib/mockdb';
 import { useUserData, useUserActions } from '../../context/UserContext';
 import { useRouter } from 'next/navigation';
 
@@ -20,12 +19,6 @@ export const Header = () => {
     } catch (error) {
       console.error('Logout failed:', error);
     }
-  };
-
-  const switchMockUser = (mockUid: string) => {
-    // @ts-ignore
-    const newUser = INITIAL_MOCK_DB[mockUid];
-    dispatch({ type: 'LOGIN', payload: newUser });
   };
 
   return (
@@ -57,23 +50,6 @@ export const Header = () => {
                     {user.displayName || user.email}
                   </span>
                 </button>
-                <div className='absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 p-2 hidden group-hover:block z-50'>
-                  <div className='text-xs font-bold text-gray-400 px-2 py-1 uppercase'>Switch User</div>
-                  {Object.values(INITIAL_MOCK_DB.users).map((u: any) => (
-                    <button
-                      key={u.uid}
-                      onClick={() => switchMockUser(u.uid)}
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-2 ${
-                        user?.uid === u.uid
-                          ? 'bg-indigo-50 text-indigo-600'
-                          : 'hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300'
-                      }`}
-                    >
-                      <div className={`w-2 h-2 rounded-full ${user?.uid === u.uid ? 'bg-indigo-500' : 'bg-gray-300'}`}></div>
-                      {u.displayName.split(' ')[0]}
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
           )}

@@ -18,13 +18,13 @@ export default function SitemapPage() {
   const [sitemapError, setSitemapError] = useState('');
   const [omitBaseUrl, setOmitBaseUrl] = useState(false);
 
-  // TODO: This useEffect should be replaced with a call to a backend API to fetch the user's sitemap.
-  // useEffect(() => {
-  //   if (user?.sitemap && discoveredUrls.length === 0) {
-  //     setDiscoveredUrls(user.sitemap);
-  //     setSitemapStatus('parsed');
-  //   }
-  // }, [user]);
+  useEffect(() => {
+    if (user?.sitemap) {
+        setDiscoveredUrls(user.sitemap.links);
+        setSitemapUrl(user.sitemap.url);
+        setSitemapStatus('parsed');
+    }
+  }, [user]);
 
   const handleSitemapFetch = async () => {
     setSitemapStatus('loading');
@@ -47,9 +47,7 @@ export default function SitemapPage() {
         setSitemapStatus('idle');
         return;
       }
-
-      // TODO: The links should now be of type Sitemap from lib/types, not SitemapLink.
-      // And should include userId
+      
       const links: any[] = data.links || [];
 
       if (links.length === 0) {
@@ -58,15 +56,30 @@ export default function SitemapPage() {
       } else {
         setDiscoveredUrls(links);
         setSitemapStatus('parsed');
-        // TODO: This should trigger a backend API call to save the new sitemap for the user.
-        // The SET_SITEMAP action is no longer handled by UserContext.
-        // dispatch({ type: 'SET_SITEMAP', payload: links });
+        
+        const sitemapData = {
+            url: sitemapUrl,
+            links: links,
+        };
+
+        const method = user?.sitemap ? 'PUT' : 'POST';
+
+        fetch('/api/sitemap', {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sitemapData),
+        }).then(res => {
+            if(res.ok) {
+                // Optionally update the user context
+            }
+        });
       }
     } catch (error: any) {
       setSitemapError(`Error: ${error.message}`);
       setSitemapStatus('idle');
     }
   };
+
 
   return (
     <SitemapView

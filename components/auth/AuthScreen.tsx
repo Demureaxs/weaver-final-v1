@@ -3,8 +3,6 @@ import { Sparkles, Mail, Lock, AlertCircle, User } from 'lucide-react';
 
 interface AuthScreenProps {
   onLogin: (user: any) => void;
-  mockUsers: any;
-  switchMockUser: (uid: string) => void;
 }
 
 export const AuthScreen = ({ onLogin }: AuthScreenProps) => {
@@ -46,34 +44,6 @@ export const AuthScreen = ({ onLogin }: AuthScreenProps) => {
     }
   };
 
-  // Quick login for demo users
-  const handleQuickLogin = async (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('password123');
-    setIsLoading(true);
-
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: demoEmail, password: 'password123' }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || 'Login failed');
-        setIsLoading(false);
-        return;
-      }
-
-      onLogin(data.user);
-    } catch (err: any) {
-      setError(err.message || 'An error occurred');
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4'>
       <div className='bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-200 dark:border-gray-700'>
@@ -83,30 +53,6 @@ export const AuthScreen = ({ onLogin }: AuthScreenProps) => {
           </div>
           <h1 className='text-2xl font-bold text-gray-800 dark:text-white'>Welcome to WEAVER.ai</h1>
           <p className='text-gray-500 dark:text-gray-400 mt-2'>AI-Powered Content Creation</p>
-        </div>
-
-        {/* Demo Quick Login */}
-        <div className='mb-6 p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800'>
-          <h3 className='text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase mb-3 tracking-wider'>Demo Login</h3>
-          <div className='grid grid-cols-2 gap-3'>
-            <button
-              onClick={() => handleQuickLogin('alice@garden-guru.com')}
-              disabled={isLoading}
-              className='p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow text-left border border-gray-100 dark:border-gray-700 disabled:opacity-50'
-            >
-              <div className='font-bold text-sm text-gray-800 dark:text-gray-200'>Alice</div>
-              <div className='text-xs text-gray-500'>Gardener</div>
-            </button>
-            <button
-              onClick={() => handleQuickLogin('bob@tech-stack.io')}
-              disabled={isLoading}
-              className='p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow text-left border border-gray-100 dark:border-gray-700 disabled:opacity-50'
-            >
-              <div className='font-bold text-sm text-gray-800 dark:text-gray-200'>Bob</div>
-              <div className='text-xs text-gray-500'>Developer</div>
-            </button>
-          </div>
-          <p className='text-xs text-gray-500 mt-2'>Password: password123</p>
         </div>
 
         {error && (

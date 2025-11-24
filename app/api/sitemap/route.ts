@@ -1,34 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getIronSession } from 'iron-session';
-import { cookies } from 'next/headers';
-import { sessionOptions, SessionData } from '@/lib/session';
-import { Sitemap } from '@/lib/types';
-import { INITIAL_MOCK_DB } from '@/lib/mockdb';
+import { getSession } from '@/lib/session';
+import { prisma } from '@/lib/prisma';
 
-export async function GET(request: NextRequest) {
+export async function POST(req: NextRequest) {
+  const session = await getSession();
+  if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+    const { url, links } = await req.json();
 
-    if (!session.isLoggedIn || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Check if sitemap already exists
+    const existing = await prisma.sitemap.findUnique({ where: { userId: session.userId } });
+    if (existing) {
+      return NextResponse.json({ error: 'Sitemap already exists. Use PUT to update.' }, { status: 409 });
     }
 
-    const userId = session.user.uid;
+    const sitemap = await prisma.sitemap.create({
+      data: {
+        userId: session.userId,
+        url,
+        links: {
+          create: links.map((l: any) => ({
+            url: l.url,
+            text: l.text || l.url,
+            lastMod: l.lastMod,
+          })),
+        },
+      },
+      include: { links: true },
+    });
 
-    // Filter sitemaps from the mock database based on the userId
-    // Assuming a user can only have one sitemap for now
-    const userSitemap: Sitemap | undefined = INITIAL_MOCK_DB.sitemaps.find(
-      (sitemap) => sitemap.userId === userId
-    );
-
-    if (!userSitemap) {
-        return NextResponse.json(null, { status: 200 }); // Return null if no sitemap found for user
-    }
-
-    return NextResponse.json(userSitemap, { status: 200 });
+    return NextResponse.json(sitemap);
   } catch (error) {
-    console.error('Error fetching user sitemap:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Failed to create sitemap:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  const session = await getSession();
+  if (!session?.userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  try {
+    const { url, links } = await req.json();
+
+    const existing = await prisma.sitemap.findUnique({ where: { userId: session.userId } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Sitemap not found. Use POST to create.' }, { status: 404 });
+    }
+
+    // Update sitemap URL and replace links
+    // Transaction: Delete old links, update sitemap, create new links
+    const [updatedSitemap] = await prisma.$transaction([
+      prisma.sitemap.update({
+        where: { id: existing.id },
+        data: {
+          url,
+          links: {
+            deleteMany: {},
+            create: links.map((l: any) => ({
+              url: l.url,
+              text: l.text || l.url,
+              lastMod: l.lastMod,
+            })),
+          },
+        },
+        include: { links: true },
+      }),
+    ]);
+
+    return NextResponse.json(updatedSitemap);
+  } catch (error) {
+    console.error('Failed to update sitemap:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

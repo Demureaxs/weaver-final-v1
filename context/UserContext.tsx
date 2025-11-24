@@ -23,9 +23,16 @@ const userReducer = (state: UserState, action: Action): UserState => {
       return { ...state, user: null, isLoading: false };
     case 'UPDATE_USER':
       if (!state.user) return state;
+      const { profile, ...otherUpdates } = action.payload;
+      const updatedProfile = profile && state.user.profile ? { ...state.user.profile, ...profile } : profile || state.user.profile;
+
       return {
         ...state,
-        user: { ...state.user, ...action.payload },
+        user: {
+          ...state.user,
+          ...otherUpdates,
+          profile: updatedProfile,
+        },
       };
     case 'TOGGLE_THEME':
       return { ...state, theme: state.theme === 'light' ? 'dark' : 'light' };
@@ -40,9 +47,7 @@ export const UserProvider = ({ children }: { children?: ReactNode }) => {
 
   return (
     <UserDataContext.Provider value={state}>
-      <UserActionsContext.Provider value={dispatch}>
-        {children}
-      </UserActionsContext.Provider>
+      <UserActionsContext.Provider value={dispatch}>{children}</UserActionsContext.Provider>
     </UserDataContext.Provider>
   );
 };

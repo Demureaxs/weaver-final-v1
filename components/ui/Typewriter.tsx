@@ -1,26 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { SimpleMarkdown } from '../editor/SimpleMarkdown';
 
 export const Typewriter = ({ text, onComplete }: any) => {
   const [displayedText, setDisplayedText] = useState('');
-  
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
   useEffect(() => {
-    setDisplayedText('');
     if (!text) return;
 
-    const intervalId = setInterval(() => {
-      setDisplayedText((prev) => {
-        if (prev.length >= text.length) {
-          clearInterval(intervalId);
-          if (onComplete) onComplete();
-          return text;
-        }
-        return text.slice(0, prev.length + 1);
-      });
-    }, 5); 
-
-    return () => clearInterval(intervalId);
-  }, [text, onComplete]);
+    if (displayedText.length < text.length) {
+      const newText = text.slice(0, displayedText.length + 1);
+      const timeoutId = setTimeout(() => {
+        setDisplayedText(newText);
+      }, 5);
+      return () => clearTimeout(timeoutId);
+    } else {
+      if (onCompleteRef.current) {
+        onCompleteRef.current();
+      }
+    }
+  }, [text, displayedText]);
 
   return <SimpleMarkdown content={displayedText} onContentChange={() => {}} isStreaming={true} currentApiKey={undefined} onDeductCredit={undefined} />;
 };

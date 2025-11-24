@@ -1,34 +1,45 @@
-# Progress Tracker: User-Centric Auth & Data Refactor
+# Weaver DB Integration Progress
 
-This file tracks the progress of refactoring the application to centralize authentication and data management around the user model.
+This document tracks the progress of integrating a database and Supabase Auth into the Weaver application.
 
-## Phase 1: Planning & Analysis (Completed)
+## Plan
 
-- [x] 1.1: Identify all files related to authentication (`auth`, `session`, `user`).
-- [x] 1.2: Identify all files related to data models (`book`, `article`, `keyword`, `sitemap`).
-- [x] 1.3: Identify all UI components that interact with user or data models.
-- [x] 1.4: Define the target data structure for the `User` model and its relationship with other data types.
+1.  [x] **Setup & Planning**
+    *   [x] Create a `progress.md` file with a detailed plan.
+    *   [x] Analyze the existing codebase to understand the current data models and their usage.
 
-## Phase 2: Core Model & Type Definition (Completed)
+2.  [x] **Prisma & Database Setup**
+    *   [x] Install Prisma and initialize it in the project. (Prisma downgraded to 6.16.0)
+    *   [x] Create a `.env` file and define the `DATABASE_URL` and `DIRECT_URL`.
+    *   [x] Add `.env` to `.gitignore`.
+    *   [x] Design and define the database schema in `prisma/schema.prisma`.
+    *   [x] Remove `prisma.config.ts`.
+    *   [x] Run the initial database migration to create the database and generate the Prisma Client.
 
-- [x] 2.1: Review and update `lib/types.ts` to define the centralized `User`, `Book`, `Article`, `Keyword`, and `Sitemap` types.
+3.  [ ] **Firebase Removal & Supabase Auth Integration**
+    *   [ ] Get Supabase credentials from the user.
+    *   [ ] Install Supabase client library.
+    *   [ ] Create a Supabase helper file (`lib/supabase.ts`).
+    *   [ ] Update Prisma schema to remove Firebase-specific fields.
+    *   [ ] Generate and run a new database migration.
+    *   [ ] Rewrite authentication API routes (`register`, `login`, `logout`) to use Supabase Auth.
+    *   [ ] Update `AuthInitializer` to work with the new auth flow.
+    *   [ ] Delete `lib/firebase.ts`.
 
-## Phase 3: Backend Refactoring (Auth & API) (Completed)
+4.  [ ] **Application Integration**
+    *   [x] Create a singleton Prisma Client instance.
+    *   [x] Implement `GET`, `POST`, `PUT`, `DELETE` for `app/api/books/route.ts`.
+    *   [x] Implement `GET`, `POST`, `PUT`, `DELETE` for `app/api/articles/route.ts`.
+    *   [x] Implement `GET`, `POST`, `PUT`, `DELETE` for `app/api/sitemap/route.ts`.
+    *   [ ] Update `app/dashboard/book-writer/page.tsx` to fetch and display books.
+    *   [ ] Implement "Create New Book" functionality.
+    *   [ ] Implement "Update Book" functionality.
+    *   [ ] Implement "Delete Book" functionality.
+    *   [ ] Update frontend to use the `articles` API.
 
-- [x] 3.1: Analyze `lib/firebase.ts` for existing Firebase auth configuration.
-- [x] 3.2: Refactor API routes in `app/api/auth/` (`login`, `logout`, `register`, `session`) to be consistent with the new user model.
-- [x] 3.3: Refactor `lib/session.ts` to manage user sessions based on the centralized user model.
-- [x] 3.4: Create or refactor API endpoints to fetch data based on the logged-in user (e.g., `GET /api/books`).
+5.  [ ] **State Management**
+    *   [ ] Analyze existing state management.
+    *   [ ] Propose and implement a plan for centralizing state.
 
-## Phase 4: Frontend Refactoring (State Management & UI) (Completed)
-
-- [x] 4.1: Consolidate frontend user state management. Analyze `context/UserContext.tsx` and `lib/userStore.ts` and choose a single source of truth.
-- [x] 4.2: Refactor `UserContext.tsx` to use the **split context pattern**, separating the user data context from the authentication actions context to prevent unnecessary re-renders.
-- [x] 4.3: Refactor `components/auth/AuthInitializer.tsx` to use the new centralized state management.
-- [x] 4.4: Update UI components (`AuthScreen.tsx`, dashboard pages, views) to use the new auth logic and data-fetching methods.
-
-## Phase 5: Verification & Cleanup
-
-- [ ] 5.1: Test the full authentication flow (register, login, logout, session persistence).
-- [ ] 5.2: Verify that data is correctly associated with and fetched for the logged-in user.
-- [ ] 5.3: Remove any old, unused authentication or data management code.
+6.  [ ] **Verification**
+    *   [ ] Verify all changes by running the application and testing the functionality.

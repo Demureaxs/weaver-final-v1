@@ -21,6 +21,7 @@ import {
   Library,
   Book as BookIcon,
   Bookmark,
+  Sparkles,
 } from 'lucide-react';
 import { useUserData, useUserActions } from '../../../context/UserContext';
 import { Book, Chapter, Character, WorldItem, WorldCategory } from '../../../lib/types';
@@ -28,6 +29,7 @@ import { EditableBlock } from '../../../components/editor/EditableBlock';
 import { CharacterModal } from '../../../components/book/CharacterModal';
 import { BookContextModal } from '../../../components/book/BookContextModal';
 import { ChapterContextModal } from '../../../components/book/ChapterContextModal';
+import { ChapterGenerationModal } from '../../../components/book/ChapterGenerationModal';
 
 // --- ICONS MAPPING ---
 const CategoryIcon = ({ category, size = 16 }: { category: WorldCategory; size?: number }) => {
@@ -69,8 +71,8 @@ const QuickAddButtons = React.memo(() => {
 
 QuickAddButtons.displayName = 'QuickAddButtons';
 
-// Modals Component - Memoized to prevent reconciliation issues
-const BookWriterModals = React.memo<{
+// Modals Component
+const BookWriterModals: React.FC<{
   isCharacterModalOpen: boolean;
   setIsCharacterModalOpen: (open: boolean) => void;
   handleSaveCharacter: (character: Character) => void;
@@ -83,55 +85,85 @@ const BookWriterModals = React.memo<{
   setIsChapterContextModalOpen: (open: boolean) => void;
   handleChapterSettingsSave: (data: Partial<Chapter>) => void;
   currentChapter: Chapter | null;
-}>(
-  ({
-    isCharacterModalOpen,
-    setIsCharacterModalOpen,
-    handleSaveCharacter,
-    editingCharacter,
-    isBookContextModalOpen,
-    setIsBookContextModalOpen,
-    handleBookSettingsSave,
-    currentBook,
-    isChapterContextModalOpen,
-    setIsChapterContextModalOpen,
-    handleChapterSettingsSave,
-    currentChapter,
-  }) => {
-    return (
-      <>
-        <CharacterModal
-          isOpen={isCharacterModalOpen}
-          onClose={() => setIsCharacterModalOpen(false)}
-          onSave={handleSaveCharacter}
-          initialData={editingCharacter || undefined}
-        />
-        <BookContextModal
-          isOpen={isBookContextModalOpen && !!currentBook}
-          onClose={() => setIsBookContextModalOpen(false)}
-          onSave={handleBookSettingsSave}
-          initialData={currentBook || undefined}
-        />
-        <ChapterContextModal
-          isOpen={isChapterContextModalOpen && !!currentChapter}
-          onClose={() => setIsChapterContextModalOpen(false)}
-          onSave={handleChapterSettingsSave}
-          initialData={currentChapter || undefined}
-          bookTitle={currentBook?.title}
-        />
-      </>
-    );
-  }
-);
-
-BookWriterModals.displayName = 'BookWriterModals';
+  isChapterGenModalOpen: boolean;
+  setIsChapterGenModalOpen: (open: boolean) => void;
+  onChaptersGenerated: () => void;
+}> = ({
+  isCharacterModalOpen,
+  setIsCharacterModalOpen,
+  handleSaveCharacter,
+  editingCharacter,
+  isBookContextModalOpen,
+  setIsBookContextModalOpen,
+  handleBookSettingsSave,
+  currentBook,
+  isChapterContextModalOpen,
+  setIsChapterContextModalOpen,
+  handleChapterSettingsSave,
+  currentChapter,
+  isChapterGenModalOpen,
+  setIsChapterGenModalOpen,
+  onChaptersGenerated,
+}) => {
+  return (
+    <>
+      <CharacterModal
+        isOpen={isCharacterModalOpen}
+        onClose={() => setIsCharacterModalOpen(false)}
+        onSave={handleSaveCharacter}
+        initialData={editingCharacter || undefined}
+      />
+      <BookContextModal
+        isOpen={isBookContextModalOpen && !!currentBook}
+        onClose={() => setIsBookContextModalOpen(false)}
+        onSave={handleBookSettingsSave}
+        initialData={currentBook || undefined}
+      />
+      <ChapterContextModal
+        isOpen={isChapterContextModalOpen && !!currentChapter}
+        onClose={() => setIsChapterContextModalOpen(false)}
+        onSave={handleChapterSettingsSave}
+        initialData={currentChapter || undefined}
+        bookTitle={currentBook?.title}
+      />
+      <ChapterGenerationModal
+        isOpen={isChapterGenModalOpen && !!currentBook}
+        onClose={() => setIsChapterGenModalOpen(false)}
+        bookId={currentBook?.id || ''}
+        onGenerated={onChaptersGenerated}
+      />
+    </>
+  );
+};
 
 export default function BookWriterPage() {
   const state = useUserData();
   const dispatch = useUserActions();
   const { user } = state;
 
-  // State
+  const [books, setBooks] = useState<Book[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBooks = async () => {
+      try {
+        const response = await fetch('/api/books');
+        if (response.ok) {
+          const data = await response.json();
+          setBooks(data);
+        } else {
+          console.error('Failed to fetch books');
+        }
+      } catch (error) {
+        console.error('Error fetching books:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchBooks();
+  }, []);
+
   const [activeBookId, setActiveBookId] = useState<string | null>(null);
   const [activeChapterId, setActiveChapterId] = useState<string | null>(null);
   const [rightPanelTab, setRightPanelTab] = useState<'characters' | 'world'>('characters');
@@ -145,14 +177,12 @@ export default function BookWriterPage() {
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
   const [isBookContextModalOpen, setIsBookContextModalOpen] = useState(false);
   const [isChapterContextModalOpen, setIsChapterContextModalOpen] = useState(false);
+  const [isChapterGenModalOpen, setIsChapterGenModalOpen] = useState(false);
 
   // Refs for scrolling
   const scrollRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Derived State
-  // TODO: Books should be fetched from an API endpoint specific to the user, not directly from user object.
-  // For now, this will always be empty, leading to the 'No Books Found' state.
-  const books: Book[] = []; // user?.books || [];
   const currentBook = books.find((b) => b.id === activeBookId) || null;
   const currentChapter = localChapters.find((c) => c.id === activeChapterId) || null;
 
@@ -215,8 +245,12 @@ export default function BookWriterPage() {
   };
 
   const checkAndDeductCredits = (cost: number) => {
-    if (!user || user.credits < cost) {
-      alert(`Not enough credits! You need ${cost} but have ${user?.credits || 0}. Upgrade to continue.`);
+    if (!user || !user.profile) {
+      alert(`User data or profile is missing. Cannot deduct credits.`);
+      return false;
+    }
+    if (user.profile.credits < cost) {
+      alert(`Not enough credits! You need ${cost} but have ${user.profile.credits}. Upgrade to continue.`);
       return false;
     }
     // TODO: This should trigger a backend API call to deduct credits for the user
@@ -224,7 +258,17 @@ export default function BookWriterPage() {
     return true;
   };
 
-  const handleParagraphSave = (chapterId: string, pIndex: number, newContent: string) => {
+  const getTagForContent = (text: string) => {
+    if (text.startsWith('# ')) return 'h1';
+    if (text.startsWith('## ')) return 'h2';
+    if (text.startsWith('### ')) return 'h3';
+    if (text.startsWith('#### ')) return 'h4';
+    if (text.startsWith('- ') || text.startsWith('* ')) return 'li';
+    if (text.startsWith('![')) return 'img';
+    return 'p';
+  };
+
+  const handleParagraphSave = async (chapterId: string, pIndex: number, newContent: string) => {
     // Update local state for immediate UI feedback
     setLocalChapters((prev) =>
       prev.map((ch) => {
@@ -235,28 +279,28 @@ export default function BookWriterPage() {
       })
     );
 
-    // TODO: This should trigger a backend API call to save the chapter content for the specific book and user.
-    // The user.books array no longer exists on the User object in context.
-    // Also update the user's books in global state for persistence
-    // if (currentBook && user) {
-    //   const updatedChapters = localChapters.map((ch) => {
-    //     if (ch.id !== chapterId) return ch;
-    //     const paragraphs = ch.content.split('\n\n');
-    //     paragraphs[pIndex] = newContent;
-    //     return { ...ch, content: paragraphs.join('\n\n') };
-    //   });
+    if (currentBook) {
+      const chapterToUpdate = localChapters.find((c) => c.id === chapterId);
+      if (chapterToUpdate) {
+        const paragraphs = chapterToUpdate.content.split('\n\n');
+        paragraphs[pIndex] = newContent;
+        const updatedContent = paragraphs.join('\n\n');
 
-    //   const updatedBook = { ...currentBook, chapters: updatedChapters };
-    //   const updatedBooks = user.books.map((b) => (b.id === currentBook.id ? updatedBook : b));
-
-    //   dispatch({
-    //     type: 'UPDATE_USER',
-    //     payload: { ...user, books: updatedBooks },
-    //   });
-    // }
+        try {
+          await fetch(`/api/books/${currentBook.id}/chapters`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: chapterId, content: updatedContent }),
+          });
+        } catch (error) {
+          console.error('Failed to save chapter:', error);
+        }
+      }
+    }
   };
 
-  const handleSaveCharacter = (character: Character) => {
+  const handleSaveCharacter = async (character: Character) => {
+    // Optimistic update
     setLocalCharacters((prev) => {
       const exists = prev.find((c) => c.id === character.id);
       if (exists) {
@@ -267,12 +311,54 @@ export default function BookWriterPage() {
     });
     setIsCharacterModalOpen(false);
     setEditingCharacter(null);
+
+    if (currentBook) {
+      try {
+        // Check if it's an update or create based on if it exists in the original book list
+        // Or simply check if the ID looks like a UUID (real) vs a temp one.
+        // For simplicity, I'll try to update, if it fails (404), I'll create?
+        // Better: If I'm editing, I know it exists. If I'm creating, I don't.
+        // But the modal passes the character object.
+
+        // Let's assume if the ID is present in the book's characters, it's an update.
+        const isUpdate = currentBook.characters?.some((c) => c.id === character.id);
+
+        const method = isUpdate ? 'PUT' : 'POST';
+        const body = isUpdate ? character : { ...character, id: undefined }; // Remove ID for create if it's temp
+
+        const res = await fetch(`/api/books/${currentBook.id}/characters`, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        if (res.ok) {
+          const savedChar = await res.json();
+          // Update local state with real ID if it was a create
+          if (!isUpdate) {
+            setLocalCharacters((prev) => prev.map((c) => (c.id === character.id ? savedChar : c)));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to save character:', error);
+      }
+    }
   };
 
-  const handleDeleteCharacter = (id: string, e: React.MouseEvent) => {
+  const handleDeleteCharacter = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (confirm('Are you sure you want to delete this character?')) {
       setLocalCharacters((prev) => prev.filter((c) => c.id !== id));
+
+      if (currentBook) {
+        try {
+          await fetch(`/api/books/${currentBook.id}/characters?id=${id}`, {
+            method: 'DELETE',
+          });
+        } catch (error) {
+          console.error('Failed to delete character:', error);
+        }
+      }
     }
   };
 
@@ -287,9 +373,40 @@ export default function BookWriterPage() {
     setIsCharacterModalOpen(true);
   };
 
-  const handleBookSettingsSave = (data: Partial<Book>) => {
+  const handleBookSettingsSave = async (data: Partial<Book>) => {
     if (currentBook) {
-      Object.assign(currentBook, data);
+      try {
+        const response = await fetch('/api/books', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...data, id: currentBook.id }),
+        });
+        if (response.ok) {
+          setBooks((prevBooks) => prevBooks.map((b) => (b.id === currentBook.id ? { ...b, ...data } : b)));
+        } else {
+          console.error('Failed to update book');
+        }
+      } catch (error) {
+        console.error('Error updating book:', error);
+      }
+    }
+  };
+
+  const handleDeleteBook = async (bookId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Are you sure you want to delete this book?')) {
+      try {
+        const response = await fetch(`/api/books?id=${bookId}`, {
+          method: 'DELETE',
+        });
+        if (response.ok) {
+          setBooks((prevBooks) => prevBooks.filter((b) => b.id !== bookId));
+        } else {
+          console.error('Failed to delete book');
+        }
+      } catch (error) {
+        console.error('Error deleting book:', error);
+      }
     }
   };
 
@@ -299,15 +416,74 @@ export default function BookWriterPage() {
     }
   };
 
-  const getTagForContent = (text: string) => {
-    if (text.startsWith('# ')) return 'h1';
-    if (text.startsWith('## ')) return 'h2';
-    if (text.startsWith('### ')) return 'h3';
-    if (text.startsWith('#### ')) return 'h4';
-    if (text.startsWith('- ') || text.startsWith('* ')) return 'li';
-    if (text.startsWith('![')) return 'img';
-    return 'p';
+  const handleChaptersGenerated = async () => {
+    // Refresh books to get newly generated chapters
+    try {
+      const response = await fetch('/api/books');
+      if (response.ok) {
+        const data = await response.json();
+        setBooks(data);
+      }
+    } catch (error) {
+      console.error('Error refreshing books:', error);
+    }
   };
+
+  const handleCreateBook = async () => {
+    try {
+      const response = await fetch('/api/books', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'New Book',
+          genre: 'Fantasy',
+          summary: 'A new story waiting to be written.',
+        }),
+      });
+      if (response.ok) {
+        const newBook = await response.json();
+        setBooks((prevBooks) => [...prevBooks, newBook]);
+        setActiveBookId(newBook.id);
+      } else {
+        console.error('Failed to create book');
+      }
+    } catch (error) {
+      console.error('Error creating book:', error);
+    }
+  };
+
+  const handleAddChapter = async () => {
+    if (!currentBook) return;
+
+    try {
+      const response = await fetch(`/api/books/${currentBook.id}/chapters`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'New Chapter',
+          content: '',
+        }),
+      });
+
+      if (response.ok) {
+        const newChapter = await response.json();
+        setLocalChapters((prev) => [...prev, newChapter]);
+        setActiveChapterId(newChapter.id);
+      } else {
+        console.error('Failed to create chapter');
+      }
+    } catch (error) {
+      console.error('Error creating chapter:', error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900'>
+        <div className='animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600'></div>
+      </div>
+    );
+  }
 
   if (books.length === 0) {
     return (
@@ -318,7 +494,12 @@ export default function BookWriterPage() {
           </div>
           <h2 className='text-2xl font-bold text-gray-800 dark:text-gray-100'>No Books Found</h2>
           <p className='text-gray-500'>Create your first book to start writing.</p>
-          <button className='bg-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-700 transition-colors'>Create New Book</button>
+          <button
+            onClick={handleCreateBook}
+            className='bg-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-700 transition-colors'
+          >
+            Create New Book
+          </button>
         </div>
 
         {/* MODALS - Always render for consistent component tree */}
@@ -335,6 +516,9 @@ export default function BookWriterPage() {
           setIsChapterContextModalOpen={setIsChapterContextModalOpen}
           handleChapterSettingsSave={handleChapterSettingsSave}
           currentChapter={currentChapter}
+          isChapterGenModalOpen={isChapterGenModalOpen}
+          setIsChapterGenModalOpen={setIsChapterGenModalOpen}
+          onChaptersGenerated={handleChaptersGenerated}
         />
       </>
     );
@@ -351,7 +535,7 @@ export default function BookWriterPage() {
               <Library size={18} className='text-purple-600' />
               <span className='font-bold text-gray-700 dark:text-gray-200 text-sm'>Library</span>
             </div>
-            <button className='text-gray-400 hover:text-purple-600 transition-colors'>
+            <button onClick={handleCreateBook} className='text-gray-400 hover:text-purple-600 transition-colors'>
               <Plus size={16} />
             </button>
           </div>
@@ -364,14 +548,22 @@ export default function BookWriterPage() {
                 <div key={book.id} className='space-y-1'>
                   <button
                     onClick={() => setActiveBookId(book.id)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors ${
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm font-bold flex items-center justify-between transition-colors ${
                       isBookActive
                         ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
-                    {isBookActive ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                    <span className='truncate'>{book.title}</span>
+                    <div className='flex items-center gap-2'>
+                      {isBookActive ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      <span className='truncate'>{book.title}</span>
+                    </div>
+                    <div
+                      onClick={(e) => handleDeleteBook(book.id, e)}
+                      className='text-gray-400 hover:text-red-600 transition-colors p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 cursor-pointer'
+                    >
+                      <Trash2 size={14} />
+                    </div>
                   </button>
 
                   {/* Chapters List (Only if Book is Active) */}
@@ -397,7 +589,10 @@ export default function BookWriterPage() {
                           </div>
                         );
                       })}
-                      <button className='w-full text-left px-3 py-2 text-xs text-gray-400 hover:text-purple-600 flex items-center gap-1 transition-colors pl-6'>
+                      <button
+                        onClick={handleAddChapter}
+                        className='w-full text-left px-3 py-2 text-xs text-gray-400 hover:text-purple-600 flex items-center gap-1 transition-colors pl-6'
+                      >
                         <Plus size={12} /> New Chapter
                       </button>
                     </div>
@@ -555,6 +750,21 @@ export default function BookWriterPage() {
 
             {rightPanelTab === 'world' && (
               <div className='space-y-6'>
+                {/* AI CHAPTER GENERATION CARD */}
+                <div className='bg-gradient-to-br from-purple-600 to-indigo-700 p-4 rounded-xl text-white shadow-md'>
+                  <div className='flex items-center gap-2 mb-3'>
+                    <Sparkles size={18} className='text-yellow-300' />
+                    <h3 className='font-bold text-sm'>AI Chapter Generation</h3>
+                  </div>
+                  <p className='text-xs opacity-90 mb-3'>Generate chapter outlines based on your story arc</p>
+                  <button
+                    onClick={() => setIsChapterGenModalOpen(true)}
+                    className='w-full py-2 bg-white text-purple-600 rounded-lg text-sm font-bold hover:bg-gray-100 transition-colors'
+                  >
+                    Generate Chapters
+                  </button>
+                </div>
+
                 {/* CHAPTER SETTINGS CARD (Dynamic based on selected chapter) */}
                 {currentChapter ? (
                   <div className='bg-white dark:bg-gray-800 p-4 rounded-xl shadow-md border border-blue-100 dark:border-blue-900/50 relative group'>
@@ -627,7 +837,7 @@ export default function BookWriterPage() {
                       >
                         <div className='flex items-center gap-2 mb-2'>
                           <div className='p-1.5 bg-gray-50 dark:bg-gray-700 rounded-lg'>
-                            <CategoryIcon category={item.category} />
+                            <CategoryIcon category={item.category as WorldCategory} />
                           </div>
                           <div>
                             <h4 className='text-sm font-bold text-gray-800 dark:text-gray-100 leading-none'>{item.name}</h4>
@@ -671,6 +881,9 @@ export default function BookWriterPage() {
         setIsChapterContextModalOpen={setIsChapterContextModalOpen}
         handleChapterSettingsSave={handleChapterSettingsSave}
         currentChapter={currentChapter}
+        isChapterGenModalOpen={isChapterGenModalOpen}
+        setIsChapterGenModalOpen={setIsChapterGenModalOpen}
+        onChaptersGenerated={handleChaptersGenerated}
       />
     </>
   );

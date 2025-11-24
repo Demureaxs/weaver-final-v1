@@ -3,7 +3,6 @@
 import React, { useEffect } from 'react';
 import { AuthScreen } from '../components/auth/AuthScreen';
 import { useUserData, useUserActions } from '../context/UserContext';
-import { INITIAL_MOCK_DB } from '../lib/mockdb';
 import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
@@ -27,7 +26,5 @@ export default function HomePage() {
       </div>
     );
 
-  return (
-    <AuthScreen onLogin={(userData: any) => dispatch({ type: 'LOGIN', payload: userData })} mockUsers={INITIAL_MOCK_DB} switchMockUser={() => {}} />
-  );
+  return <AuthScreen onLogin={(userData: any) => dispatch({ type: 'LOGIN', payload: userData })} />;
 }

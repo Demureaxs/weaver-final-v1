@@ -12,13 +12,12 @@ interface BookContextModalProps {
 }
 
 export const BookContextModal = ({ isOpen, onClose, onSave, initialData, userApiKey }: BookContextModalProps) => {
-  if (!isOpen) return null;
-
   const [formData, setFormData] = useState({
     summary: '',
     storyArc: '',
     tone: '',
     setting: '',
+    totalTargetWords: 0,
   });
 
   const [aiPrompt, setAiPrompt] = useState('');
@@ -32,11 +31,12 @@ export const BookContextModal = ({ isOpen, onClose, onSave, initialData, userApi
         storyArc: initialData.storyArc || '',
         tone: initialData.tone || '',
         setting: initialData.setting || '',
+        totalTargetWords: initialData.totalTargetWords || 0,
       });
     }
   }, [initialData, isOpen]);
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -85,6 +85,8 @@ export const BookContextModal = ({ isOpen, onClose, onSave, initialData, userApi
       setActiveField('');
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in'>
@@ -211,6 +213,22 @@ export const BookContextModal = ({ isOpen, onClose, onSave, initialData, userApi
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Total Target Word Count */}
+        <div className='p-8 pt-0 space-y-2'>
+          <label className='text-xs font-bold text-gray-500 uppercase'>Total Book Word Count Target</label>
+          <input
+            type='number'
+            min='500'
+            max='500000'
+            step='1000'
+            value={formData.totalTargetWords}
+            onChange={(e) => handleChange('totalTargetWords', parseInt(e.target.value) || 0)}
+            className='w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-purple-500'
+            placeholder='e.g. 80000'
+          />
+          <p className='text-xs text-gray-400'>Recommended: Short story (5k-20k), Novella (20k-50k), Novel (50k-120k)</p>
         </div>
 
         {/* Footer */}

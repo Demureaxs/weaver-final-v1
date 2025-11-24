@@ -1,9 +1,11 @@
 import React from 'react';
 import { FileText, Edit3, CreditCard, Layers, FileEdit, Clock, ArrowRight } from 'lucide-react';
-import { UserProfile } from '../lib/types';
+import { User, Article } from '../lib/types';
 
-export const DashboardView = ({ user }: { user: UserProfile | null }) => {
-  if (!user) return null;
+export const DashboardView = ({ user }: { user: User | null }) => {
+  if (!user || !user.profile) return null;
+
+  const activeCount = user.articles?.filter(a => a.status === 'Draft').length || 0;
   
   return (
     <div className="animate-fade-in space-y-6">
@@ -17,7 +19,7 @@ export const DashboardView = ({ user }: { user: UserProfile | null }) => {
             <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Articles Generated</p>
                 {/* Shows actual count of articles from the array */}
-                <h3 className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{user.articles ? user.articles.length : 0}</h3>
+                <h3 className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{user.articles?.length || 0}</h3>
             </div>
             <div className="bg-indigo-50 dark:bg-indigo-900/30 p-3 rounded-xl text-indigo-500">
                 <FileText size={24} />
@@ -28,7 +30,7 @@ export const DashboardView = ({ user }: { user: UserProfile | null }) => {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 flex items-center justify-between">
             <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Active Drafts</p>
-                <h3 className="text-3xl font-bold text-purple-600 dark:text-purple-400">{user.activeCount || 0}</h3>
+                <h3 className="text-3xl font-bold text-purple-600 dark:text-purple-400">{activeCount}</h3>
             </div>
             <div className="bg-purple-50 dark:bg-purple-900/30 p-3 rounded-xl text-purple-500">
                 <Edit3 size={24} />
@@ -39,7 +41,7 @@ export const DashboardView = ({ user }: { user: UserProfile | null }) => {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 flex items-center justify-between">
             <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Credits Remaining</p>
-                <h3 className={`text-3xl font-bold ${user.credits > 10 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{user.credits}</h3>
+                <h3 className={`text-3xl font-bold ${user.profile.credits > 10 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{user.profile.credits}</h3>
             </div>
             <div className="bg-green-50 dark:bg-green-900/30 p-3 rounded-xl text-green-500">
                 <CreditCard size={24} />
@@ -50,7 +52,7 @@ export const DashboardView = ({ user }: { user: UserProfile | null }) => {
         <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 flex items-center justify-between">
             <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Current Plan</p>
-                <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{user.plan}</h3>
+                <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{user.profile.plan}</h3>
             </div>
             <div className="bg-gray-100 dark:bg-gray-700/50 p-3 rounded-xl text-gray-600 dark:text-gray-300">
                 <Layers size={24} />
@@ -79,13 +81,13 @@ export const DashboardView = ({ user }: { user: UserProfile | null }) => {
           </div>
           <div className="divide-y divide-gray-100 dark:divide-gray-700">
               {user.articles && user.articles.length > 0 ? (
-                  user.articles.map((article, idx) => (
+                  user.articles.map((article: Article, idx: number) => (
                       <button key={idx} className="w-full text-left p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group flex justify-between items-center">
                           <div>
                               <h4 className="font-semibold text-gray-800 dark:text-gray-100 group-hover:text-indigo-600 transition-colors">{article.title}</h4>
                               <div className="flex items-center gap-2 mt-1">
-                                  <span className="text-xs text-gray-400 flex items-center gap-1"><Clock size={10} /> {new Date(article.createdAt || article.updatedAt).toLocaleDateString()}</span>
-                                  <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 px-2 py-0.5 rounded-full uppercase font-bold tracking-wide">{article.status || 'Draft'}</span>
+                                  <span className="text-xs text-gray-400 flex items-center gap-1"><Clock size={10} /> {new Date(article.createdAt).toLocaleDateString()}</span>
+                                  <span className="text-[10px] bg-gray-100 dark:bg-gray-700 text-gray-500 px-2 py-0.5 rounded-full uppercase font-bold tracking-wide">{article.status}</span>
                               </div>
                           </div>
                           <div className="text-gray-300 group-hover:text-indigo-400">

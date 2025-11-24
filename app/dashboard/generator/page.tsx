@@ -18,21 +18,11 @@ export default function GeneratorPage() {
   const [generatedContent, setGeneratedContent] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [keyword, setKeyword] = useState('');
-  const [wordCount, setWordCount] = useState(500);
+  const [minWordsPerSection, setMinWordsPerSection] = useState(150);
   const [sectionCount, setSectionCount] = useState(3);
   const [includeFaq, setIncludeFaq] = useState(true);
   const [includeImage, setIncludeImage] = useState(true);
   const [bodyImageCount, setBodyImageCount] = useState(1);
-
-  const checkAndDeductCredits = (cost: number) => {
-    if (!user || user.credits < cost) {
-      alert(`Not enough credits! You need ${cost} but have ${user?.credits || 0}. Upgrade to continue.`);
-      return false;
-    }
-    // TODO: This should trigger a backend API call to deduct credits for the user
-    // dispatch({ type: 'DEDUCT_CREDITS', payload: cost });
-    return true;
-  };
 
   const generateBlog = async () => {
     if (!keyword.trim()) {
@@ -41,7 +31,10 @@ export default function GeneratorPage() {
       return;
     }
 
-    if (!checkAndDeductCredits(10)) return;
+    if (!user || !user.profile || user.profile.credits < 5) {
+        alert(`Not enough credits! You need 5 but have ${user?.profile?.credits || 0}. Upgrade to continue.`);
+        return;
+    }
 
     setStatus('generating');
     setGeneratedContent('');
@@ -50,68 +43,59 @@ export default function GeneratorPage() {
     setStatusMessage('Initializing AI agents...');
 
     try {
-      setStatusMessage(`Drafting ${wordCount} words on "${keyword}"...`);
-      // TODO: Sitemap links should be fetched from a user-specific API endpoint.
-      // For now, this will just be an empty string.
-      const internalLinks = ''; // user?.sitemap?.slice(0, 5).map((l) => l.url).join(', ') || '';
-      let internalLinksContext = internalLinks
-        ? `SEO & LINKING (CRITICAL): INTERNAL LINKS: Naturally integrate 3-5 links from: ${internalLinks}.`
-        : `SEO & LINKING: EXTERNAL LINKS: Include 2-3 high-authority external links.`;
-
-      let markdown = '';
-      try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: `
-                Write a blog post about "${keyword}". Word count: ~${wordCount}. Sections: ${sectionCount}. ${includeFaq ? 'Include FAQ.' : ''}
-                ${internalLinksContext}
-                IMAGES: Include ${bodyImageCount} additional images within body text using tag: [IMAGE_PROMPT: description]
-                STYLE GUIDELINES:
-                1. TONE: Conversational, human, authentic.
-                2. NO em-dashes (—).
-                3. NO buzzwords (leverage, unleash, game-changer).
-                4. EXTERNAL LINKS: MUST be real, clickable URLs (e.g., [Wikipedia](https://wikipedia.org/wiki/...)), NEVER placeholders like [Link 1].
-                5. FORMAT: STRICT Markdown (# H1, ## H2).
-              `,
+        const response = await fetch('/api/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                keyword,
+                minWordsPerSection,
+                sectionCount,
+                includeFaq,
+                includeImage,
+                bodyImageCount,
+            }),
         });
 
-        let rawMarkdown = response.text;
-        if (!rawMarkdown) throw new Error('No content');
-        markdown = rawMarkdown.replace(/^H(\d):\s*/gm, (match, level) => '#'.repeat(parseInt(level)) + ' ');
-      } catch (apiError) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        markdown = `# ${keyword} (Demo Mode)\n\n*Real generation failed.* \n\n## Introduction\nWelcome to your blog post about ${keyword}. \n\n[IMAGE_PROMPT: A futuristic robot writing a blog post]\n\n## Main Section\nContent goes here.`;
-      }
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Failed to generate content');
+        }
 
-      markdown = markdown.replace(/\[IMAGE_PROMPT:\s*(.*?)\]/g, (match, prompt) => {
-        return `![${prompt}](https://placehold.co/600x400/orange/white?text=${encodeURIComponent(prompt.substring(0, 20))})`;
-      });
+        if (!response.body) {
+            throw new Error('No response body');
+        }
 
-      setGeneratedContent(markdown);
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let done = false;
+        let fullArticleText = '';
 
-      const newArticle: Article = {
-        id: Date.now().toString(),
-        // TODO: The userId should be added here
-        title: keyword,
-        content: markdown,
-        snippet: markdown.substring(0, 100) + '...',
-        status: 'Draft',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+        while (!done) {
+            const { value, done: readerDone } = await reader.read();
+            done = readerDone;
+            const chunk = decoder.decode(value, { stream: true });
+            fullArticleText += chunk;
 
-      // TODO: This should trigger a backend API call to save the new article for the user.
-      // The ADD_ARTICLE action is no longer handled by UserContext.
-      // dispatch({ type: 'ADD_ARTICLE', payload: newArticle });
+            if (fullArticleText.includes('--STATS--')) {
+                const parts = fullArticleText.split('--STATS--');
+                setGeneratedContent(parts[0]);
+                const stats = JSON.parse(parts[1]);
+                dispatch({ type: 'UPDATE_USER', payload: { profile: { ...user.profile, credits: stats.newCredits } } });
+                // I will need to fetch the new article and add it to the user's articles
+                // For now, I will just update the credits
+            } else {
+                setGeneratedContent(fullArticleText);
+            }
+        }
+        
+        setStatus('success');
+        setStatusMessage('Content ready!');
+        setIsStreaming(true);
 
-      setStatus('success');
-      setStatusMessage('Content ready!');
-      setIsStreaming(true);
-    } catch (error) {
-      console.error(error);
-      setStatus('error');
-      setStatusMessage('Failed.');
+    } catch (error: any) {
+        console.error(error);
+        setStatus('error');
+        setStatusMessage(error.message || 'Failed to generate content.');
     }
   };
 
@@ -124,8 +108,8 @@ export default function GeneratorPage() {
     <GeneratorView
       keyword={keyword}
       setKeyword={setKeyword}
-      wordCount={wordCount}
-      setWordCount={setWordCount}
+      minWordsPerSection={minWordsPerSection}
+      setMinWordsPerSection={setMinWordsPerSection}
       sectionCount={sectionCount}
       setSectionCount={setSectionCount}
       bodyImageCount={bodyImageCount}
@@ -134,8 +118,7 @@ export default function GeneratorPage() {
       setIncludeFaq={setIncludeFaq}
       includeImage={includeImage}
       setIncludeImage={setIncludeImage}
-      savedKeywords={user?.keywords || []}
-      // TODO: savedSitemaps should be fetched from a user-specific API endpoint.
+      savedKeywords={user?.profile?.keywords || []}
       savedSitemaps={[]} // user?.sitemap?.map((s: any) => s.url) || []
       generateBlog={generateBlog}
       status={status}
@@ -146,7 +129,7 @@ export default function GeneratorPage() {
       setGeneratedContent={setGeneratedContent}
       isStreaming={isStreaming}
       setIsStreaming={setIsStreaming}
-      handleRefineCreditDeduction={(cost: number) => checkAndDeductCredits(cost)}
+      handleRefineCreditDeduction={() => {}}
       copyToClipboard={copyToClipboard}
     />
   );

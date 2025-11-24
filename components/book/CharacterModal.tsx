@@ -35,10 +35,9 @@ const AVATAR_COLORS = [
 const CHARACTER_ROLES = ['Protagonist', 'Antagonist', 'Deuteragonist', 'Mentor', 'Love Interest', 'Supporting', 'Extra'];
 
 export const CharacterModal = ({ isOpen, onClose, onSave, initialData, userApiKey }: CharacterModalProps) => {
-  if (!isOpen) return null;
-
   const [formData, setFormData] = useState<Character>({
     id: '',
+    bookId: '',
     name: '',
     role: 'Supporting',
     archetype: '',
@@ -61,6 +60,7 @@ export const CharacterModal = ({ isOpen, onClose, onSave, initialData, userApiKe
       // Reset for new character
       setFormData({
         id: Date.now().toString(),
+        bookId: '',
         name: '',
         role: 'Supporting',
         archetype: '',
@@ -117,6 +117,8 @@ export const CharacterModal = ({ isOpen, onClose, onSave, initialData, userApiKe
       setIsGenerating(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in'>

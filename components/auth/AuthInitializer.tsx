@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useUserActions } from '../../context/UserContext';
+import { User, Article, Book, Sitemap } from '../../lib/types';
 
 export const AuthInitializer = () => {
   const dispatch = useUserActions();
@@ -10,10 +11,10 @@ export const AuthInitializer = () => {
     // Check for existing session on mount
     const checkSession = async () => {
       try {
-        const response = await fetch('/api/auth/session');
+        const response = await fetch('/api/user/me');
         const data = await response.json();
 
-        if (data.isLoggedIn && data.user) {
+        if (response.ok && data.success && data.user) {
           dispatch({ type: 'LOGIN', payload: data.user });
         } else {
           dispatch({ type: 'LOGOUT' });

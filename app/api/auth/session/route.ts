@@ -1,26 +1,30 @@
 import { NextResponse } from 'next/server';
-import { getIronSession } from 'iron-session';
-import { cookies } from 'next/headers';
-import { sessionOptions, SessionData, defaultSession } from '@/lib/session';
+import { getSession } from '@/lib/session';
+import { prisma } from '@/lib/prisma';
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const session = await getIronSession<SessionData>(cookieStore, sessionOptions);
+    const session = await getSession();
 
-    if (!session.isLoggedIn) {
-      return NextResponse.json(defaultSession, { status: 200 });
+    if (!session || !session.userId) {
+      return NextResponse.json({ success: false, user: null, message: 'No active session' });
     }
 
-    return NextResponse.json(
-      {
-        isLoggedIn: true,
-        user: session.user,
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      include: {
+        profile: true,
       },
-      { status: 200 }
-    );
+    });
+
+    if (!user) {
+      return NextResponse.json({ success: false, user: null, message: 'User not found' });
+    }
+
+    const { password, ...userWithoutPassword } = user as any;
+    return NextResponse.json({ success: true, isLoggedIn: true, user: userWithoutPassword, message: 'Session retrieved successfully' });
   } catch (error) {
-    console.error('Session check error:', error);
-    return NextResponse.json(defaultSession, { status: 200 });
+    console.error('Get Session API error:', error);
+    return NextResponse.json({ success: false, user: null, message: 'An internal server error occurred.' });
   }
 }

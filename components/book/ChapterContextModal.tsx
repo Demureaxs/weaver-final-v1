@@ -13,11 +13,10 @@ interface ChapterContextModalProps {
 }
 
 export const ChapterContextModal = ({ isOpen, onClose, onSave, initialData, userApiKey, bookTitle }: ChapterContextModalProps) => {
-  if (!isOpen) return null;
-
   const [formData, setFormData] = useState({
     title: '',
     summary: '',
+    targetWordCount: 1000,
   });
 
   const [aiPrompt, setAiPrompt] = useState('');
@@ -28,11 +27,12 @@ export const ChapterContextModal = ({ isOpen, onClose, onSave, initialData, user
       setFormData({
         title: initialData.title || '',
         summary: initialData.summary || '',
+        targetWordCount: initialData.targetWordCount || 1000,
       });
     }
   }, [initialData, isOpen]);
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -77,6 +77,8 @@ export const ChapterContextModal = ({ isOpen, onClose, onSave, initialData, user
       setIsGenerating(false);
     }
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in'>
@@ -151,6 +153,28 @@ export const ChapterContextModal = ({ isOpen, onClose, onSave, initialData, user
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Target Word Count Slider */}
+        <div className='p-8 pt-0 space-y-2'>
+          <div className='flex justify-between items-center'>
+            <label className='text-xs font-bold text-gray-500 uppercase'>Target Word Count</label>
+            <span className='text-sm font-bold text-blue-600 dark:text-blue-400'>{formData.targetWordCount} words</span>
+          </div>
+          <input
+            type='range'
+            min='500'
+            max='5000'
+            step='100'
+            value={formData.targetWordCount}
+            onChange={(e) => handleChange('targetWordCount', parseInt(e.target.value))}
+            className='w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700'
+          />
+          <div className='flex justify-between text-xs text-gray-400'>
+            <span>500</span>
+            <span>2750</span>
+            <span>5000</span>
           </div>
         </div>
 
