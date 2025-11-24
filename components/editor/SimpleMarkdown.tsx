@@ -12,7 +12,7 @@ interface SimpleMarkdownProps {
 
 export const SimpleMarkdown: React.FC<SimpleMarkdownProps> = ({ content, className = '' }) => {
   return (
-    <div className={`prose dark:prose-invert max-w-none ${className}`}>
+    <div className={`prose prose-lg dark:prose-invert max-w-none ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeSanitize]}

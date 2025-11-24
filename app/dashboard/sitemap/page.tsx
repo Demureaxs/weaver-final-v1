@@ -12,7 +12,6 @@ export default function SitemapPage() {
   const [sitemapInputType, setSitemapInputType] = useState<'url' | 'text'>('url');
   const [sitemapUrl, setSitemapUrl] = useState('');
   const [sitemapText, setSitemapText] = useState('');
-  // TODO: discoveredUrls should be initialized by fetching the user's sitemap from a backend API.
   const [discoveredUrls, setDiscoveredUrls] = useState<any[]>([]);
   const [sitemapStatus, setSitemapStatus] = useState('idle');
   const [sitemapError, setSitemapError] = useState('');
@@ -20,9 +19,9 @@ export default function SitemapPage() {
 
   useEffect(() => {
     if (user?.sitemap) {
-        setDiscoveredUrls(user.sitemap.links);
-        setSitemapUrl(user.sitemap.url);
-        setSitemapStatus('parsed');
+      setDiscoveredUrls(user.sitemap.links);
+      setSitemapUrl(user.sitemap.url);
+      setSitemapStatus('parsed');
     }
   }, [user]);
 
@@ -47,7 +46,7 @@ export default function SitemapPage() {
         setSitemapStatus('idle');
         return;
       }
-      
+
       const links: any[] = data.links || [];
 
       if (links.length === 0) {
@@ -56,22 +55,22 @@ export default function SitemapPage() {
       } else {
         setDiscoveredUrls(links);
         setSitemapStatus('parsed');
-        
+
         const sitemapData = {
-            url: sitemapUrl,
-            links: links,
+          url: sitemapUrl,
+          links: links,
         };
 
         const method = user?.sitemap ? 'PUT' : 'POST';
 
         fetch('/api/sitemap', {
-            method: method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(sitemapData),
-        }).then(res => {
-            if(res.ok) {
-                // Optionally update the user context
-            }
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(sitemapData),
+        }).then((res) => {
+          if (res.ok) {
+            // Optionally update the user context
+          }
         });
       }
     } catch (error: any) {
@@ -79,7 +78,6 @@ export default function SitemapPage() {
       setSitemapStatus('idle');
     }
   };
-
 
   return (
     <SitemapView

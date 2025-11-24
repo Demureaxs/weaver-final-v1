@@ -55,21 +55,17 @@ export default function KeywordsPage() {
       isSearching={isSearching}
       keywordResults={keywordResults}
       savedKeywords={user?.profile?.keywords || []}
-      // TODO: This should trigger a backend API call to update the user's keywords.
-      // The TOGGLE_KEYWORD action is no longer handled by UserContext.
       toggleKeyword={(kw: string) => {
         if (!user || !user.profile) return;
         const currentKeywords = user.profile.keywords || [];
-        const newKeywords = currentKeywords.includes(kw)
-          ? currentKeywords.filter((k) => k !== kw)
-          : [...currentKeywords, kw];
-        
+        const newKeywords = currentKeywords.includes(kw) ? currentKeywords.filter((k) => k !== kw) : [...currentKeywords, kw];
+
         dispatch({ type: 'UPDATE_USER', payload: { profile: { ...user.profile, keywords: newKeywords } } });
 
         fetch('/api/user/keywords', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ keywords: newKeywords }),
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keywords: newKeywords }),
         });
       }}
     />

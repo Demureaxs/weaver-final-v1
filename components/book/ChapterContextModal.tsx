@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Wand2, RefreshCw, Check, Bookmark, FileText } from 'lucide-react';
 import { Chapter } from '../../lib/types';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface ChapterContextModalProps {
   isOpen: boolean;
@@ -54,20 +54,18 @@ export const ChapterContextModal = ({ isOpen, onClose, onSave, initialData, user
         return;
       }
 
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenerativeAI(apiKey);
+      const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
       const prompt = `Generate a concise chapter summary/breakdown for a chapter titled "${formData.title}" in the book "${bookTitle || 'Unknown'}". 
       User Context/Input: "${aiPrompt}". 
       Return ONLY the text.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
+      const response = await model.generateContent(prompt);
 
-      const text = response.text;
-      if (text) {
-        handleChange('summary', text.trim());
+      const generatedContent = response.response.text().trim();
+      if (generatedContent) {
+        handleChange('summary', generatedContent);
       }
       setAiPrompt('');
     } catch (e) {

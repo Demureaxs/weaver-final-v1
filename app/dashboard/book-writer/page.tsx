@@ -30,6 +30,7 @@ import { CharacterModal } from '../../../components/book/CharacterModal';
 import { BookContextModal } from '../../../components/book/BookContextModal';
 import { ChapterContextModal } from '../../../components/book/ChapterContextModal';
 import { ChapterGenerationModal } from '../../../components/book/ChapterGenerationModal';
+import { WorldItemModal } from '../../../components/book/WorldItemModal';
 
 // --- ICONS MAPPING ---
 const CategoryIcon = ({ category, size = 16 }: { category: WorldCategory; size?: number }) => {
@@ -53,12 +54,13 @@ const CategoryIcon = ({ category, size = 16 }: { category: WorldCategory; size?:
 const WORLD_CATEGORIES: WorldCategory[] = ['Location', 'Lore', 'Magic', 'Tech', 'Faction'];
 
 // Quick Add Buttons Component - Memoized to prevent reconciliation issues
-const QuickAddButtons = React.memo(() => {
+const QuickAddButtons = React.memo(({ onAdd }: { onAdd: (category: WorldCategory) => void }) => {
   return (
     <>
       {WORLD_CATEGORIES.map((cat) => (
         <button
           key={cat}
+          onClick={() => onAdd(cat)}
           className='flex flex-col items-center justify-center p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors'
         >
           <CategoryIcon category={cat} size={14} />
@@ -88,6 +90,10 @@ const BookWriterModals: React.FC<{
   isChapterGenModalOpen: boolean;
   setIsChapterGenModalOpen: (open: boolean) => void;
   onChaptersGenerated: () => void;
+  isWorldItemModalOpen: boolean;
+  setIsWorldItemModalOpen: (open: boolean) => void;
+  handleSaveWorldItem: (worldItem: WorldItem) => void;
+  editingWorldItem: WorldItem | null;
 }> = ({
   isCharacterModalOpen,
   setIsCharacterModalOpen,
@@ -104,6 +110,10 @@ const BookWriterModals: React.FC<{
   isChapterGenModalOpen,
   setIsChapterGenModalOpen,
   onChaptersGenerated,
+  isWorldItemModalOpen,
+  setIsWorldItemModalOpen,
+  handleSaveWorldItem,
+  editingWorldItem,
 }) => {
   return (
     <>
@@ -131,6 +141,14 @@ const BookWriterModals: React.FC<{
         onClose={() => setIsChapterGenModalOpen(false)}
         bookId={currentBook?.id || ''}
         onGenerated={onChaptersGenerated}
+      />
+      <WorldItemModal
+        isOpen={isWorldItemModalOpen && !!currentBook}
+        onClose={() => setIsWorldItemModalOpen(false)}
+        onSave={handleSaveWorldItem}
+        initialData={editingWorldItem || undefined}
+        bookTitle={currentBook?.title}
+        existingCategories={[]} // Placeholder for now
       />
     </>
   );
@@ -178,6 +196,15 @@ export default function BookWriterPage() {
   const [isBookContextModalOpen, setIsBookContextModalOpen] = useState(false);
   const [isChapterContextModalOpen, setIsChapterContextModalOpen] = useState(false);
   const [isChapterGenModalOpen, setIsChapterGenModalOpen] = useState(false);
+  const [isWorldItemModalOpen, setIsWorldItemModalOpen] = useState(false);
+  const [editingWorldItem, setEditingWorldItem] = useState<WorldItem | null>(null);
+
+  // Inline Editing State
+  const [editingBookId, setEditingBookId] = useState<string | null>(null);
+  const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
+  const [tempTitle, setTempTitle] = useState('');
+  const [editingMetadataField, setEditingMetadataField] = useState<string | null>(null);
+  const [tempMetadataValue, setTempMetadataValue] = useState('');
 
   // Refs for scrolling
   const scrollRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -189,6 +216,14 @@ export default function BookWriterPage() {
   // We use localCharacters for display to support immediate updates, but fallback to book characters
   const displayCharacters = localCharacters.length > 0 ? localCharacters : currentBook?.characters || [];
   const worldItems = currentBook?.worldBible || [];
+  const localWorldItems = currentBook?.worldBible || []; // Initial population
+  const [displayWorldItems, setDisplayWorldItems] = useState<WorldItem[]>([]);
+
+  useEffect(() => {
+    if (currentBook) {
+      setDisplayWorldItems(currentBook.worldBible);
+    }
+  }, [currentBook?.id]);
 
   // Init Book & Chapter Selection
   useEffect(() => {
@@ -244,7 +279,7 @@ export default function BookWriterPage() {
     handleScrollTo(chapterId);
   };
 
-  const checkAndDeductCredits = (cost: number) => {
+  const checkAndDeductCredits = async (cost: number) => {
     if (!user || !user.profile) {
       alert(`User data or profile is missing. Cannot deduct credits.`);
       return false;
@@ -253,9 +288,26 @@ export default function BookWriterPage() {
       alert(`Not enough credits! You need ${cost} but have ${user.profile.credits}. Upgrade to continue.`);
       return false;
     }
-    // TODO: This should trigger a backend API call to deduct credits for the user
-    // dispatch({ type: 'DEDUCT_CREDITS', payload: cost });
-    return true;
+
+    try {
+      const res = await fetch('/api/user/credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: cost, type: 'deduct' }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        dispatch({ type: 'UPDATE_USER', payload: { profile: { ...user.profile, credits: data.credits } } });
+        return true;
+      } else {
+        console.error('Failed to deduct credits');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error deducting credits:', error);
+      return false;
+    }
   };
 
   const getTagForContent = (text: string) => {
@@ -373,6 +425,17 @@ export default function BookWriterPage() {
     setIsCharacterModalOpen(true);
   };
 
+  const openCreateWorldItemModal = (category?: WorldCategory) => {
+    setEditingWorldItem(category ? { id: '', bookId: currentBook?.id || '', name: '', category, description: '' } : null);
+    setIsWorldItemModalOpen(true);
+  };
+
+  const openEditWorldItemModal = (item: WorldItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingWorldItem(item);
+    setIsWorldItemModalOpen(true);
+  };
+
   const handleBookSettingsSave = async (data: Partial<Book>) => {
     if (currentBook) {
       try {
@@ -452,6 +515,102 @@ export default function BookWriterPage() {
     }
   };
 
+  const handleDeleteChapter = async (chapterId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Are you sure you want to delete this chapter?')) {
+      // Optimistic update
+      setLocalChapters((prev) => prev.filter((ch) => ch.id !== chapterId));
+
+      if (currentBook) {
+        try {
+          const response = await fetch(`/api/books/${currentBook.id}/chapters?id=${chapterId}`, {
+            method: 'DELETE',
+          });
+          if (!response.ok) {
+            console.error('Failed to delete chapter');
+            // Revert optimistic update if API call fails
+            // You might need to refetch all chapters or save the original state
+          }
+        } catch (error) {
+          console.error('Error deleting chapter:', error);
+          // Revert optimistic update if API call fails
+        }
+      }
+    }
+  };
+
+  const handleSaveWorldItem = async (worldItem: WorldItem) => {
+    // Optimistic update
+    setDisplayWorldItems((prev) => {
+      const exists = prev.find((item) => item.id === worldItem.id);
+      if (exists) {
+        return prev.map((item) => (item.id === worldItem.id ? worldItem : item));
+      } else {
+        // Assign a temporary ID if it's a new item for optimistic update
+        const newItem = worldItem.id ? worldItem : { ...worldItem, id: `temp-${Date.now()}` };
+        return [...prev, newItem];
+      }
+    });
+    setIsWorldItemModalOpen(false);
+    setEditingWorldItem(null);
+
+    if (currentBook) {
+      try {
+        const isUpdate = worldItem.id && currentBook.worldBible.some((item) => item.id === worldItem.id);
+        const method = isUpdate ? 'PUT' : 'POST';
+        const body = isUpdate ? worldItem : { ...worldItem, bookId: currentBook.id };
+
+        const res = await fetch(`/api/books/${currentBook.id}/world`, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        if (res.ok) {
+          const savedItem = await res.json();
+          // Update local state with real ID if it was a create
+          if (!isUpdate) {
+            setDisplayWorldItems((prev) => prev.map((item) => (item.id === worldItem.id ? savedItem : item)));
+          }
+          // Refresh entire book to ensure data consistency
+          const response = await fetch('/api/books');
+          if (response.ok) {
+            const data = await response.json();
+            setBooks(data);
+          }
+        } else {
+          console.error('Failed to save world item');
+          // TODO: Revert optimistic update if API fails
+        }
+      } catch (error) {
+        console.error('Error saving world item:', error);
+        // TODO: Revert optimistic update if API fails
+      }
+    }
+  };
+
+  const handleDeleteWorldItem = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm('Are you sure you want to delete this world item?')) {
+      setDisplayWorldItems((prev) => prev.filter((item) => item.id !== id));
+
+      if (currentBook) {
+        try {
+          const response = await fetch(`/api/books/${currentBook.id}/world?id=${id}`, {
+            method: 'DELETE',
+          });
+          if (!response.ok) {
+            console.error('Failed to delete world item');
+            // TODO: Revert optimistic update if API fails
+          }
+        } catch (error) {
+          console.error('Error deleting world item:', error);
+          // TODO: Revert optimistic update if API fails
+        }
+      }
+    }
+  };
+
   const handleAddChapter = async () => {
     if (!currentBook) return;
 
@@ -475,6 +634,112 @@ export default function BookWriterPage() {
     } catch (error) {
       console.error('Error creating chapter:', error);
     }
+  };
+
+  const handleStartEditingBook = (book: Book, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigation
+    setEditingBookId(book.id);
+    setTempTitle(book.title);
+  };
+
+  const handleSaveBookTitle = async () => {
+    if (!editingBookId) return;
+    if (!tempTitle.trim()) {
+      setEditingBookId(null);
+      return;
+    }
+
+    // Optimistic update
+    setBooks((prev) => prev.map((b) => (b.id === editingBookId ? { ...b, title: tempTitle } : b)));
+    setEditingBookId(null);
+
+    try {
+      await fetch('/api/books', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingBookId, title: tempTitle }),
+      });
+    } catch (error) {
+      console.error('Failed to update book title', error);
+    }
+  };
+
+  const handleStartEditingChapter = (chapter: Chapter, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingChapterId(chapter.id);
+    setTempTitle(chapter.title);
+  };
+
+  const handleSaveChapterTitle = async () => {
+    if (!editingChapterId || !currentBook) return;
+    if (!tempTitle.trim()) {
+      setEditingChapterId(null);
+      return;
+    }
+
+    // Optimistic update
+    setLocalChapters((prev) => prev.map((c) => (c.id === editingChapterId ? { ...c, title: tempTitle } : c)));
+    setEditingChapterId(null);
+
+    try {
+      const chapter = localChapters.find((c) => c.id === editingChapterId);
+      if (chapter) {
+        await fetch(`/api/books/${currentBook.id}/chapters`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: editingChapterId, title: tempTitle, content: chapter.content }),
+        });
+      }
+    } catch (error) {
+      console.error('Failed to update chapter title', error);
+    }
+  };
+
+  const handleStartEditingMetadata = (field: string, value: string) => {
+    setEditingMetadataField(field);
+    setTempMetadataValue(value);
+  };
+
+  const handleSaveMetadata = async () => {
+    if (!editingMetadataField || !currentBook) return;
+
+    const updates = { [editingMetadataField]: tempMetadataValue };
+
+    // Optimistic
+    setBooks((prev) => prev.map((b) => (b.id === currentBook.id ? { ...b, ...updates } : b)));
+    setEditingMetadataField(null);
+
+    try {
+      await fetch('/api/books', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentBook.id, ...updates }),
+      });
+    } catch (error) {
+      console.error('Failed to save metadata', error);
+    }
+  };
+
+  const handleAddParagraph = (chapterId: string, index: number) => {
+    setLocalChapters((prev) =>
+      prev.map((ch) => {
+        if (ch.id !== chapterId) return ch;
+        const paragraphs = ch.content.split('\n\n');
+        paragraphs.splice(index + 1, 0, 'New paragraph...');
+        const newContent = paragraphs.join('\n\n');
+
+        // Trigger save
+        if (currentBook) {
+          fetch(`/api/books/${currentBook.id}/chapters`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: chapterId, content: newContent }),
+          });
+        }
+
+        return { ...ch, content: newContent };
+      })
+    );
   };
 
   if (isLoading) {
@@ -519,6 +784,10 @@ export default function BookWriterPage() {
           isChapterGenModalOpen={isChapterGenModalOpen}
           setIsChapterGenModalOpen={setIsChapterGenModalOpen}
           onChaptersGenerated={handleChaptersGenerated}
+          isWorldItemModalOpen={isWorldItemModalOpen}
+          setIsWorldItemModalOpen={setIsWorldItemModalOpen}
+          handleSaveWorldItem={handleSaveWorldItem}
+          editingWorldItem={editingWorldItem}
         />
       </>
     );
@@ -546,7 +815,7 @@ export default function BookWriterPage() {
               const isBookActive = activeBookId === book.id;
               return (
                 <div key={book.id} className='space-y-1'>
-                  <button
+                  <div
                     onClick={() => setActiveBookId(book.id)}
                     className={`w-full text-left px-3 py-2 rounded-lg text-sm font-bold flex items-center justify-between transition-colors ${
                       isBookActive
@@ -554,9 +823,24 @@ export default function BookWriterPage() {
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
-                    <div className='flex items-center gap-2'>
-                      {isBookActive ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                      <span className='truncate'>{book.title}</span>
+                    <div className='flex items-center gap-2 flex-grow min-w-0'>
+                      {isBookActive ? <ChevronDown size={16} className='flex-shrink-0' /> : <ChevronRight size={16} className='flex-shrink-0' />}
+                      {editingBookId === book.id ? (
+                        <input
+                          type='text'
+                          value={tempTitle}
+                          onChange={(e) => setTempTitle(e.target.value)}
+                          onBlur={handleSaveBookTitle}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveBookTitle()}
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                          className='bg-white dark:bg-gray-900 border border-indigo-300 dark:border-indigo-600 rounded px-1 py-0.5 text-sm w-full outline-none'
+                        />
+                      ) : (
+                        <span className='truncate cursor-text' onDoubleClick={(e) => handleStartEditingBook(book, e)} title='Double click to edit'>
+                          {book.title}
+                        </span>
+                      )}
                     </div>
                     <div
                       onClick={(e) => handleDeleteBook(book.id, e)}
@@ -564,8 +848,14 @@ export default function BookWriterPage() {
                     >
                       <Trash2 size={14} />
                     </div>
-                  </button>
-
+                  </div>
+                  {isBookActive && (
+                    <div className='flex items-center gap-2 text-gray-500 dark:text-gray-400 text-[10px] font-medium px-3 pb-2'>
+                      <span>{book.genre}</span>
+                      <span>•</span>
+                      <span className='truncate'>{book.summary.substring(0, 50)}...</span>
+                    </div>
+                  )}
                   {/* Chapters List (Only if Book is Active) */}
                   {isBookActive && (
                     <div className='ml-2 pl-2 border-l-2 border-indigo-100 dark:border-indigo-900 space-y-1'>
@@ -575,15 +865,40 @@ export default function BookWriterPage() {
                           <div key={chapter.id} className='group'>
                             <button
                               onClick={() => scrollToChapter(chapter.id)}
-                              className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium flex flex-col transition-colors ${
+                              className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-medium flex items-center justify-between transition-colors group ${
                                 isChapterActive
                                   ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'
                                   : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                               }`}
                             >
                               <div className='flex items-center gap-2'>
-                                <div className={`w-1.5 h-1.5 rounded-full ${isChapterActive ? 'bg-purple-500' : 'bg-gray-300'}`}></div>
-                                <span className='truncate'>{chapter.title}</span>
+                                <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isChapterActive ? 'bg-purple-500' : 'bg-gray-300'}`}></div>
+                                {editingChapterId === chapter.id ? (
+                                  <input
+                                    type='text'
+                                    value={tempTitle}
+                                    onChange={(e) => setTempTitle(e.target.value)}
+                                    onBlur={handleSaveChapterTitle}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSaveChapterTitle()}
+                                    autoFocus
+                                    onClick={(e) => e.stopPropagation()}
+                                    className='bg-white dark:bg-gray-900 border border-purple-300 dark:border-purple-600 rounded px-1 py-0.5 text-xs w-full outline-none'
+                                  />
+                                ) : (
+                                  <span
+                                    className='truncate cursor-text'
+                                    onDoubleClick={(e) => handleStartEditingChapter(chapter, e)}
+                                    title='Double click to edit'
+                                  >
+                                    {chapter.title}
+                                  </span>
+                                )}
+                              </div>
+                              <div
+                                onClick={(e) => handleDeleteChapter(chapter.id, e)}
+                                className='text-gray-400 hover:text-red-600 transition-colors p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 cursor-pointer opacity-0 group-hover:opacity-100'
+                              >
+                                <Trash2 size={14} />
                               </div>
                             </button>
                           </div>
@@ -612,14 +927,97 @@ export default function BookWriterPage() {
                 <div className='max-w-3xl mx-auto space-y-16 pb-20'>
                   {/* Title Page Block */}
                   <div className='text-center space-y-4 mb-12 border-b border-gray-100 dark:border-gray-700 pb-8'>
-                    <h1 className='text-4xl font-bold text-gray-900 dark:text-white'>{currentBook.title}</h1>
-                    <p className='text-xl text-gray-500 italic'>{currentBook.genre}</p>
+                    {editingMetadataField === 'title' ? (
+                      <input
+                        type='text'
+                        value={tempMetadataValue}
+                        onChange={(e) => setTempMetadataValue(e.target.value)}
+                        onBlur={handleSaveMetadata}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveMetadata()}
+                        autoFocus
+                        className='text-4xl font-bold text-gray-900 dark:text-white text-center bg-transparent border-b-2 border-indigo-500 outline-none w-full'
+                      />
+                    ) : (
+                      <h1
+                        className='text-4xl font-bold text-gray-900 dark:text-white cursor-pointer hover:text-indigo-600 transition-colors'
+                        onClick={() => handleStartEditingMetadata('title', currentBook.title)}
+                      >
+                        {currentBook.title}
+                      </h1>
+                    )}
+
+                    {editingMetadataField === 'genre' ? (
+                      <input
+                        type='text'
+                        value={tempMetadataValue}
+                        onChange={(e) => setTempMetadataValue(e.target.value)}
+                        onBlur={handleSaveMetadata}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveMetadata()}
+                        autoFocus
+                        className='text-xl text-gray-500 italic text-center bg-transparent border-b-2 border-indigo-500 outline-none w-1/2 mx-auto block'
+                      />
+                    ) : (
+                      <p
+                        className='text-xl text-gray-500 italic cursor-pointer hover:text-indigo-600 transition-colors'
+                        onClick={() => handleStartEditingMetadata('genre', currentBook.genre)}
+                      >
+                        {currentBook.genre}
+                      </p>
+                    )}
+
                     <div className='flex items-center justify-center gap-4 text-xs font-medium text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/10 py-2 rounded-full max-w-md mx-auto'>
-                      <span>{currentBook.tone || 'Tone: Unset'}</span>
+                      {editingMetadataField === 'tone' ? (
+                        <input
+                          type='text'
+                          value={tempMetadataValue}
+                          onChange={(e) => setTempMetadataValue(e.target.value)}
+                          onBlur={handleSaveMetadata}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveMetadata()}
+                          autoFocus
+                          className='bg-transparent border-b border-purple-500 outline-none text-center w-24'
+                        />
+                      ) : (
+                        <span onClick={() => handleStartEditingMetadata('tone', currentBook.tone || '')} className='cursor-pointer hover:underline'>
+                          {currentBook.tone || 'Set Tone'}
+                        </span>
+                      )}
                       <span>•</span>
-                      <span>{currentBook.setting || 'Setting: Unset'}</span>
+                      {editingMetadataField === 'setting' ? (
+                        <input
+                          type='text'
+                          value={tempMetadataValue}
+                          onChange={(e) => setTempMetadataValue(e.target.value)}
+                          onBlur={handleSaveMetadata}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveMetadata()}
+                          autoFocus
+                          className='bg-transparent border-b border-purple-500 outline-none text-center w-24'
+                        />
+                      ) : (
+                        <span
+                          onClick={() => handleStartEditingMetadata('setting', currentBook.setting || '')}
+                          className='cursor-pointer hover:underline'
+                        >
+                          {currentBook.setting || 'Set Setting'}
+                        </span>
+                      )}
                     </div>
-                    <p className='text-sm text-gray-400 max-w-lg mx-auto'>{currentBook.summary}</p>
+
+                    {editingMetadataField === 'summary' ? (
+                      <textarea
+                        value={tempMetadataValue}
+                        onChange={(e) => setTempMetadataValue(e.target.value)}
+                        onBlur={handleSaveMetadata}
+                        autoFocus
+                        className='text-sm text-gray-400 max-w-lg mx-auto w-full bg-transparent border border-indigo-200 rounded p-2 outline-none h-24'
+                      />
+                    ) : (
+                      <p
+                        className='text-sm text-gray-400 max-w-lg mx-auto cursor-pointer hover:text-gray-600 dark:hover:text-gray-200 transition-colors'
+                        onClick={() => handleStartEditingMetadata('summary', currentBook.summary)}
+                      >
+                        {currentBook.summary || 'Click to add a summary...'}
+                      </p>
+                    )}
                   </div>
 
                   {/* Chapters Loop */}
@@ -639,27 +1037,68 @@ export default function BookWriterPage() {
                       <h2 className='text-2xl font-bold text-gray-800 dark:text-gray-100'>{chapter.title}</h2>
 
                       <div className='font-serif'>
-                        {chapter.content.split('\n\n').map((paragraph, pIdx) => (
+                        {chapter.content.split('\n\n').map((paragraph: string, pIdx: number) => (
                           <div
                             key={`${chapter.id}-${pIdx}`}
                             ref={(el) => {
                               scrollRefs.current[`${chapter.id}-p-${pIdx}`] = el;
                             }}
                           >
-                            <EditableBlock
-                              index={pIdx}
-                              initialContent={paragraph}
-                              tag={getTagForContent(paragraph)}
-                              onSave={(idx: number, content: string) => handleParagraphSave(chapter.id, idx, content)}
-                              onDeductCredit={checkAndDeductCredits}
-                              isStreaming={false}
-                              context={getAIContext()} // Pass the generated context
-                            />
+                            <div className='group/block relative'>
+                              <EditableBlock
+                                index={pIdx}
+                                initialContent={paragraph}
+                                tag={getTagForContent(paragraph)}
+                                onSave={(idx: number, content: string) => handleParagraphSave(chapter.id, idx, content)}
+                                isStreaming={false}
+                                onDeductCredit={checkAndDeductCredits}
+                                context={getAIContext()}
+                                // Pass available characters for advanced prompt
+                                availableCharacters={displayCharacters}
+                                // We need to pass previous/next context, but EditableBlock needs to handle it.
+                                // For now, let's just pass the full chapter content or adjacent paragraphs?
+                                // Better to pass them as props:
+                                previousContext={chapter.content.split('\n\n')[pIdx - 1] || ''}
+                                nextContext={chapter.content.split('\n\n')[pIdx + 1] || ''}
+                              />
+                              {/* Add Paragraph Placeholder */}
+                              <div className='h-0 group-hover/block:h-auto overflow-hidden transition-all duration-200 opacity-0 group-hover/block:opacity-100'>
+                                <div
+                                  onClick={() => handleAddParagraph(chapter.id, pIdx)}
+                                  className='mt-2 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-2 flex items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all text-gray-400 hover:text-indigo-500'
+                                >
+                                  <Plus size={16} />
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
+
+                      {/* Add Chapter Placeholder at end of chapter */}
+                      <div
+                        onClick={handleAddChapter}
+                        className='mt-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all text-gray-400 hover:text-purple-500 group'
+                      >
+                        <div className='p-3 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40 transition-colors mb-2'>
+                          <Plus size={24} />
+                        </div>
+                        <span className='font-medium'>Add New Chapter</span>
+                      </div>
                     </div>
                   ))}
+
+                  {localChapters.length === 0 && (
+                    <div
+                      onClick={handleAddChapter}
+                      className='mt-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-12 flex flex-col items-center justify-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all text-gray-400 hover:text-purple-500 group'
+                    >
+                      <div className='p-4 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40 transition-colors mb-3'>
+                        <Plus size={32} />
+                      </div>
+                      <span className='font-bold text-lg'>Start Your First Chapter</span>
+                    </div>
+                  )}
 
                   <div className='h-32 flex items-center justify-center text-gray-400 italic'>--- End of Manuscript ---</div>
                 </div>
@@ -833,7 +1272,7 @@ export default function BookWriterPage() {
                     {worldItems.map((item) => (
                       <div
                         key={item.id}
-                        className='bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700 transition-colors'
+                        className='bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 group cursor-pointer hover:border-purple-300 dark:hover:border-purple-700 transition-colors relative'
                       >
                         <div className='flex items-center gap-2 mb-2'>
                           <div className='p-1.5 bg-gray-50 dark:bg-gray-700 rounded-lg'>
@@ -845,6 +1284,20 @@ export default function BookWriterPage() {
                           </div>
                         </div>
                         <p className='text-xs text-gray-600 dark:text-gray-400 leading-snug'>{item.description}</p>
+                        <div className='absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity'>
+                          <button
+                            onClick={(e) => openEditWorldItemModal(item, e)}
+                            className='p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors'
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={(e) => handleDeleteWorldItem(item.id, e)}
+                            className='p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors'
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -858,7 +1311,7 @@ export default function BookWriterPage() {
                 <div className='pt-4 border-t border-gray-100 dark:border-gray-700'>
                   <h4 className='text-xs font-bold text-gray-400 uppercase tracking-wider mb-3'>Quick Add</h4>
                   <div className='grid grid-cols-3 gap-2'>
-                    <QuickAddButtons />
+                    <QuickAddButtons onAdd={openCreateWorldItemModal} />
                   </div>
                 </div>
               </div>
@@ -866,7 +1319,6 @@ export default function BookWriterPage() {
           </div>
         </div>
       </div>
-
       {/* MODALS */}
       <BookWriterModals
         isCharacterModalOpen={isCharacterModalOpen}
@@ -884,7 +1336,11 @@ export default function BookWriterPage() {
         isChapterGenModalOpen={isChapterGenModalOpen}
         setIsChapterGenModalOpen={setIsChapterGenModalOpen}
         onChaptersGenerated={handleChaptersGenerated}
-      />
+        isWorldItemModalOpen={isWorldItemModalOpen}
+        setIsWorldItemModalOpen={setIsWorldItemModalOpen}
+        handleSaveWorldItem={handleSaveWorldItem}
+        editingWorldItem={editingWorldItem}
+      />{' '}
     </>
   );
 }

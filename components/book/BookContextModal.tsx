@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Wand2, RefreshCw, Check, BookOpen, Map, Palette } from 'lucide-react';
 import { Book } from '../../lib/types';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface BookContextModalProps {
   isOpen: boolean;
@@ -59,7 +59,8 @@ export const BookContextModal = ({ isOpen, onClose, onSave, initialData, userApi
         return;
       }
 
-      const ai = new GoogleGenAI({ apiKey });
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
       const prompt = `Generate a concise (max 50 words) ${field} description for a book titled "${initialData?.title || 'Unknown'}" (${
         initialData?.genre || 'Unknown genre'
@@ -67,12 +68,9 @@ export const BookContextModal = ({ isOpen, onClose, onSave, initialData, userApi
       User Context/Input: "${aiPrompt}". 
       Return ONLY the text.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
-
-      const text = response.text;
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
       if (text) {
         handleChange(field, text.trim());
       }

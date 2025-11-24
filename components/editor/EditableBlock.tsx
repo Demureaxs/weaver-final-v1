@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Edit3, Check, X, Sparkles, RefreshCw, Wand2 } from 'lucide-react';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { formatText } from '../../lib/utils';
 
-export const EditableBlock = ({ initialContent, tag, onSave, index, isStreaming, onDeductCredit, context }: any) => {
+export const EditableBlock = (props: any) => {
+  const { initialContent, tag, onSave, index, isStreaming, onDeductCredit, context } = props;
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(initialContent);
   const [aiPrompt, setAiPrompt] = useState('');
   const [isRefining, setIsRefining] = useState(false);
+
+  // Advanced Prompt State
+  const [includePrevious, setIncludePrevious] = useState(false);
+  const [includeNext, setIncludeNext] = useState(false);
+  const [selectedCharIds, setSelectedCharIds] = useState<string[]>([]);
+
+  const { previousContext, nextContext, availableCharacters } = props; // Destructure new props
 
   useEffect(() => {
     setContent(initialContent);
@@ -39,7 +47,8 @@ export const EditableBlock = ({ initialContent, tag, onSave, index, isStreaming,
         return;
       }
 
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenerativeAI(apiKey);
+      const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
       let prompt = `Refine the following text based on this instruction: "${aiPrompt}". 
       CRITICAL STYLE RULES: 
@@ -52,14 +61,27 @@ export const EditableBlock = ({ initialContent, tag, onSave, index, isStreaming,
         prompt += `\n\nSTORY CONTEXT (Use this to inform the style/content): \n${context}`;
       }
 
+      if (includePrevious && previousContext) {
+        prompt += `\n\nPREVIOUS PARAGRAPH (Context): "${previousContext}"`;
+      }
+
+      if (includeNext && nextContext) {
+        prompt += `\n\nNEXT PARAGRAPH (Context): "${nextContext}"`;
+      }
+
+      if (selectedCharIds.length > 0 && availableCharacters) {
+        const selectedChars = availableCharacters.filter((c: any) => selectedCharIds.includes(c.id));
+        const charContext = selectedChars.map((c: any) => `${c.name} (${c.role}): ${c.description}`).join('; ');
+        prompt += `\n\nCHARACTERS PRESENT: ${charContext}`;
+      }
+
       prompt += `\n\nText to refine: "${content}"`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
+      console.log('--- REFINEMENT PROMPT ---', prompt);
 
-      const refinedText = response.text;
+      const response = await model.generateContent(prompt);
+
+      const refinedText = response.response.text();
       if (refinedText) {
         setContent(refinedText.trim());
       }
@@ -200,6 +222,57 @@ export const EditableBlock = ({ initialContent, tag, onSave, index, isStreaming,
           >
             {isRefining ? <RefreshCw size={16} className='animate-spin' /> : <Wand2 size={16} />}
           </button>
+        </div>
+
+        {/* Advanced Context Options */}
+        <div className='bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg space-y-3 border border-gray-100 dark:border-gray-700'>
+          <div className='flex flex-wrap gap-4'>
+            {previousContext && (
+              <label className='flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer hover:text-indigo-600 transition-colors'>
+                <input
+                  type='checkbox'
+                  checked={includePrevious}
+                  onChange={(e) => setIncludePrevious(e.target.checked)}
+                  className='rounded border-gray-300 text-indigo-600 focus:ring-indigo-500'
+                />
+                Include Previous Paragraph
+              </label>
+            )}
+            {nextContext && (
+              <label className='flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer hover:text-indigo-600 transition-colors'>
+                <input
+                  type='checkbox'
+                  checked={includeNext}
+                  onChange={(e) => setIncludeNext(e.target.checked)}
+                  className='rounded border-gray-300 text-indigo-600 focus:ring-indigo-500'
+                />
+                Include Next Paragraph
+              </label>
+            )}
+          </div>
+
+          {availableCharacters && availableCharacters.length > 0 && (
+            <div className='space-y-1'>
+              <span className='text-[10px] font-bold text-gray-400 uppercase'>Include Characters</span>
+              <div className='flex flex-wrap gap-2'>
+                {availableCharacters.map((char: any) => (
+                  <button
+                    key={char.id}
+                    onClick={() => {
+                      setSelectedCharIds((prev) => (prev.includes(char.id) ? prev.filter((id) => id !== char.id) : [...prev, char.id]));
+                    }}
+                    className={`text-xs px-2 py-1 rounded-full border transition-all ${
+                      selectedCharIds.includes(char.id)
+                        ? 'bg-indigo-100 dark:bg-indigo-900/40 border-indigo-300 text-indigo-700 dark:text-indigo-300'
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 hover:border-indigo-300'
+                    }`}
+                  >
+                    {char.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

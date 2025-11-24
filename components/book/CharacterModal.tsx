@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Wand2, RefreshCw, Check, User, Palette } from 'lucide-react';
 import { Character } from '../../lib/types';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface CharacterModalProps {
   isOpen: boolean;
@@ -92,19 +92,18 @@ export const CharacterModal = ({ isOpen, onClose, onSave, initialData, userApiKe
     setIsGenerating(true);
 
     try {
-      const apiKey = userApiKey || process.env.API_KEY;
-      const ai = new GoogleGenAI({ apiKey: apiKey });
+
+      const apiKey = userApiKey || process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
       const prompt = `Generate a short, compelling character description (max 50 words) for a "${formData.role}" character named "${
         formData.name || 'Unknown'
       }". Context/Prompt: ${aiPrompt}. Return ONLY the text.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
-
-      const text = response.text;
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
       if (text) {
         setFormData((prev) => ({ ...prev, description: text.trim() }));
       }

@@ -111,6 +111,8 @@ export async function POST(req: NextRequest) {
     Please begin the article now.
   `;
 
+  console.log('--- ARTICLE GENERATION PROMPT ---', prompt);
+
   try {
     const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
     const result = await model.generateContentStream(prompt);

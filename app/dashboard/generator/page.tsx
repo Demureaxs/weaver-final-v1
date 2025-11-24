@@ -32,8 +32,8 @@ export default function GeneratorPage() {
     }
 
     if (!user || !user.profile || user.profile.credits < 5) {
-        alert(`Not enough credits! You need 5 but have ${user?.profile?.credits || 0}. Upgrade to continue.`);
-        return;
+      alert(`Not enough credits! You need 5 but have ${user?.profile?.credits || 0}. Upgrade to continue.`);
+      return;
     }
 
     setStatus('generating');
@@ -43,59 +43,87 @@ export default function GeneratorPage() {
     setStatusMessage('Initializing AI agents...');
 
     try {
-        const response = await fetch('/api/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                keyword,
-                minWordsPerSection,
-                sectionCount,
-                includeFaq,
-                includeImage,
-                bodyImageCount,
-            }),
-        });
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          keyword,
+          minWordsPerSection,
+          sectionCount,
+          includeFaq,
+          includeImage,
+          bodyImageCount,
+        }),
+      });
 
-        if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || 'Failed to generate content');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to generate content');
+      }
+
+      if (!response.body) {
+        throw new Error('No response body');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+      let fullArticleText = '';
+      let finalNewArticleId: string | null = null;
+      let finalNewCredits: number | null = null;
+      let streamError: string | null = null;
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        const chunk = decoder.decode(value, { stream: true });
+        fullArticleText += chunk;
+
+        // Update content as it streams
+        if (fullArticleText.includes('--STATS--')) {
+          const parts = fullArticleText.split('--STATS--');
+          setGeneratedContent(parts[0]);
+          const stats = JSON.parse(parts[1]);
+          finalNewArticleId = stats.newArticleId;
+          finalNewCredits = stats.newCredits;
+          // Don't update user state here yet, wait for full article to process
+        } else if (fullArticleText.includes('--ERROR--')) {
+          const parts = fullArticleText.split('--ERROR--');
+          setGeneratedContent(parts[0]); // Display any content before error
+          streamError = parts[1] || 'An error occurred during article generation.';
+          done = true; // Stop processing further chunks on error
+        } else {
+          setGeneratedContent(fullArticleText);
         }
+      }
 
-        if (!response.body) {
-            throw new Error('No response body');
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let done = false;
-        let fullArticleText = '';
-
-        while (!done) {
-            const { value, done: readerDone } = await reader.read();
-            done = readerDone;
-            const chunk = decoder.decode(value, { stream: true });
-            fullArticleText += chunk;
-
-            if (fullArticleText.includes('--STATS--')) {
-                const parts = fullArticleText.split('--STATS--');
-                setGeneratedContent(parts[0]);
-                const stats = JSON.parse(parts[1]);
-                dispatch({ type: 'UPDATE_USER', payload: { profile: { ...user.profile, credits: stats.newCredits } } });
-                // I will need to fetch the new article and add it to the user's articles
-                // For now, I will just update the credits
-            } else {
-                setGeneratedContent(fullArticleText);
-            }
-        }
-        
+      if (streamError) {
+        setStatus('error');
+        setStatusMessage(streamError);
+      } else {
         setStatus('success');
         setStatusMessage('Content ready!');
         setIsStreaming(true);
 
+        // Now that the stream is complete, update user credits and fetch the article
+        if (finalNewCredits !== null) {
+          dispatch({ type: 'UPDATE_USER', payload: { profile: { ...user.profile, credits: finalNewCredits } } });
+        }
+
+        if (finalNewArticleId) {
+          const articleResponse = await fetch(`/api/articles/${finalNewArticleId}`);
+          if (articleResponse.ok) {
+            const newArticle: Article = await articleResponse.json();
+            dispatch({ type: 'UPDATE_USER', payload: { articles: [...(user?.articles || []), newArticle] } });
+          } else {
+            console.error('Failed to fetch new article after generation');
+          }
+        }
+      }
     } catch (error: any) {
-        console.error(error);
-        setStatus('error');
-        setStatusMessage(error.message || 'Failed to generate content.');
+      console.error(error);
+      setStatus('error');
+      setStatusMessage(error.message || 'Failed to generate content.');
     }
   };
 
@@ -119,7 +147,7 @@ export default function GeneratorPage() {
       includeImage={includeImage}
       setIncludeImage={setIncludeImage}
       savedKeywords={user?.profile?.keywords || []}
-      savedSitemaps={[]} // user?.sitemap?.map((s: any) => s.url) || []
+      savedSitemaps={user?.sitemap ? [user.sitemap.url] : []}
       generateBlog={generateBlog}
       status={status}
       statusMessage={statusMessage}
