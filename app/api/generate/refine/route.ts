@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const { prompt, content, context, previousContext, nextContext, selectedCharIds } = body;
+  const { prompt, content, context, previousContext, nextContext, characterContext } = body;
 
   if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
     return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
@@ -87,10 +87,8 @@ export async function POST(req: NextRequest) {
       fullPrompt += `\n\nNEXT PARAGRAPH (Context): "${nextContext}"`;
     }
 
-    if (selectedCharIds && Array.isArray(selectedCharIds) && selectedCharIds.length > 0) {
-      // Note: Character context should be included in the request body by the client
-      // as `availableCharacters` info, but for now we just note that characters are involved
-      fullPrompt += `\n\nNote: Characters are involved in this scene.`;
+    if (characterContext && typeof characterContext === 'string') {
+      fullPrompt += `\n\nCHARACTERS PRESENT: ${characterContext}`;
     }
 
     fullPrompt += `\n\nText to refine: "${content}"`;

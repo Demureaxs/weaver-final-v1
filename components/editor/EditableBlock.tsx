@@ -43,22 +43,16 @@ export const EditableBlock = (props: any) => {
         characterContext = selectedChars.map((c: any) => `${c.name} (${c.role}): ${c.description}`).join('; ');
       }
 
-      // Build the full prompt with all context
-      let fullPrompt = aiPrompt;
-      if (characterContext) {
-        fullPrompt += `\n\nCHARACTERS PRESENT: ${characterContext}`;
-      }
-
       const response = await fetch('/api/generate/refine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: fullPrompt,
+          prompt: aiPrompt,
           content,
           context,
           previousContext: includePrevious ? previousContext : undefined,
           nextContext: includeNext ? nextContext : undefined,
-          selectedCharIds,
+          characterContext: characterContext || undefined,
         }),
       });
 
