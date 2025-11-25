@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Edit3, Check, X, Sparkles, RefreshCw, Wand2 } from 'lucide-react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { formatText } from '../../lib/utils';
 
 export const EditableBlock = (props: any) => {
-  const { initialContent, tag, onSave, index, isStreaming, onDeductCredit, context } = props;
+  const { initialContent, tag, onSave, index, isStreaming, context, onCreditsUpdate } = props;
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(initialContent);
   const [aiPrompt, setAiPrompt] = useState('');
@@ -35,60 +34,47 @@ export const EditableBlock = (props: any) => {
   const handleAiRefine = async () => {
     if (!aiPrompt.trim()) return;
 
-    if (onDeductCredit && !onDeductCredit(1)) return;
-
     setIsRefining(true);
     try {
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
-
-      if (!apiKey) {
-        console.error('Google API key not found. Please set NEXT_PUBLIC_GOOGLE_API_KEY in .env');
-        setContent(content + '\n\n[AI Error: API key not configured]');
-        return;
-      }
-
-      const ai = new GoogleGenerativeAI(apiKey);
-      const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
-
-      let prompt = `Refine the following text based on this instruction: "${aiPrompt}". 
-      CRITICAL STYLE RULES: 
-      1. Make it sound 100% human. 
-      2. ABSOLUTELY NO em-dashes. 
-      3. NO buzzwords. 
-      Return only text.`;
-
-      if (context) {
-        prompt += `\n\nSTORY CONTEXT (Use this to inform the style/content): \n${context}`;
-      }
-
-      if (includePrevious && previousContext) {
-        prompt += `\n\nPREVIOUS PARAGRAPH (Context): "${previousContext}"`;
-      }
-
-      if (includeNext && nextContext) {
-        prompt += `\n\nNEXT PARAGRAPH (Context): "${nextContext}"`;
-      }
-
+      // Build character context if characters are selected
+      let characterContext = '';
       if (selectedCharIds.length > 0 && availableCharacters) {
         const selectedChars = availableCharacters.filter((c: any) => selectedCharIds.includes(c.id));
-        const charContext = selectedChars.map((c: any) => `${c.name} (${c.role}): ${c.description}`).join('; ');
-        prompt += `\n\nCHARACTERS PRESENT: ${charContext}`;
+        characterContext = selectedChars.map((c: any) => `${c.name} (${c.role}): ${c.description}`).join('; ');
       }
 
-      prompt += `\n\nText to refine: "${content}"`;
+      const response = await fetch('/api/generate/refine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: aiPrompt,
+          content,
+          context,
+          previousContext: includePrevious ? previousContext : undefined,
+          nextContext: includeNext ? nextContext : undefined,
+          characterContext: characterContext || undefined,
+        }),
+      });
 
-      console.log('--- REFINEMENT PROMPT ---', prompt);
+      const data = await response.json();
 
-      const response = await model.generateContent(prompt);
-
-      const refinedText = response.response.text();
-      if (refinedText) {
-        setContent(refinedText.trim());
+      if (!response.ok) {
+        throw new Error(data.error || 'Refinement failed');
       }
+
+      if (data.refinedText) {
+        setContent(data.refinedText);
+      }
+
+      // Update credits in the global state
+      if (onCreditsUpdate && data.credits !== undefined) {
+        onCreditsUpdate(data.credits);
+      }
+
       setAiPrompt('');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Refinement failed', error);
-      alert('AI refinement failed. Please check your API key and try again.');
+      alert(error.message || 'AI refinement failed. Please try again.');
     } finally {
       setIsRefining(false);
     }
