@@ -128,6 +128,17 @@ export async function POST(req: NextRequest) {
 
         if (fullArticleText) {
           try {
+            // Clean up the article text - remove markdown code blocks if present
+            let cleanedArticle = fullArticleText.trim();
+
+            // Remove markdown code block syntax if AI included it
+            if (cleanedArticle.startsWith('```markdown') || cleanedArticle.startsWith('```md') || cleanedArticle.startsWith('```')) {
+              cleanedArticle = cleanedArticle
+                .replace(/^```(markdown|md)?\n?/i, '')
+                .replace(/```\s*$/i, '')
+                .trim();
+            }
+
             const [updatedProfile, newArticle] = await prisma.$transaction([
               prisma.profile.update({
                 where: { userId: currentUserId },
@@ -136,9 +147,9 @@ export async function POST(req: NextRequest) {
               prisma.article.create({
                 data: {
                   title: keyword || 'Untitled Article',
-                  content: fullArticleText,
+                  content: cleanedArticle,
                   userId: currentUserId,
-                  snippet: fullArticleText.substring(0, 100) + '...',
+                  snippet: cleanedArticle.substring(0, 100) + '...',
                   status: 'Draft',
                 },
               }),

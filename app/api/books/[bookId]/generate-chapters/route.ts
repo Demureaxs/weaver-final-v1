@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ boo
     }
 
     const ai = new GoogleGenerativeAI(apiKey);
-    const model = ai.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     const prompt = `Generate ${chapterCount} chapter outlines for a ${book.genre} book titled "${book.title}".
 
@@ -50,17 +50,34 @@ Do not include any markdown formatting, code blocks, or additional text. Just th
     const response = await model.generateContent(prompt);
 
     const text = response.response.text().trim();
+    console.log('--- AI RESPONSE FOR CHAPTER GENERATION ---', text);
 
     // Remove markdown code blocks if present
     let jsonText = text;
     if (text.startsWith('```')) {
       jsonText = text
-        .replace(/```json\n?/g, '')
+        .replace(/```json\n?/gi, '')
         .replace(/```\n?/g, '')
         .trim();
     }
 
-    const chapterOutlines = JSON.parse(jsonText);
+    console.log('--- CLEANED JSON TEXT ---', jsonText);
+
+    let chapterOutlines;
+    try {
+      chapterOutlines = JSON.parse(jsonText);
+    } catch (parseError: any) {
+      console.error('JSON Parse Error:', parseError);
+      console.error('Failed to parse text:', jsonText);
+      return NextResponse.json(
+        {
+          error: 'AI returned invalid JSON format',
+          details: `Parse error: ${parseError.message}`,
+          rawResponse: text.substring(0, 200),
+        },
+        { status: 500 }
+      );
+    }
 
     // Get the current max order
     const lastChapter = await prisma.chapter.findFirst({
@@ -89,6 +106,7 @@ Do not include any markdown formatting, code blocks, or additional text. Just th
     return NextResponse.json({ chapters: createdChapters });
   } catch (error) {
     console.error('Failed to generate chapters:', error);
-    return NextResponse.json({ error: 'Failed to generate chapters' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: 'Failed to generate chapters', details: errorMessage }, { status: 500 });
   }
 }

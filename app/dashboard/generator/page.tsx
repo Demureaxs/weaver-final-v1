@@ -105,19 +105,30 @@ export default function GeneratorPage() {
         setStatusMessage('Content ready!');
         setIsStreaming(true);
 
-        // Now that the stream is complete, update user credits and fetch the article
-        if (finalNewCredits !== null) {
-          dispatch({ type: 'UPDATE_USER', payload: { profile: { ...user.profile, credits: finalNewCredits } } });
-        }
+        // Update user credits and add the new article to the context
+        if (user?.profile) {
+          const updates: Partial<typeof user> = {
+            profile: { ...user.profile, credits: finalNewCredits || user.profile.credits } as any,
+          };
 
-        if (finalNewArticleId) {
-          const articleResponse = await fetch(`/api/articles/${finalNewArticleId}`);
-          if (articleResponse.ok) {
-            const newArticle: Article = await articleResponse.json();
-            dispatch({ type: 'UPDATE_USER', payload: { articles: [...(user?.articles || []), newArticle] } });
-          } else {
-            console.error('Failed to fetch new article after generation');
+          // If we have the article ID, create a minimal article object to add to the state
+          if (finalNewArticleId && fullArticleText) {
+            const newArticle: Article = {
+              id: finalNewArticleId,
+              title: keyword || 'Untitled Article',
+              content: fullArticleText.split('--STATS--')[0].trim(),
+              snippet: fullArticleText.substring(0, 100) + '...',
+              status: 'Draft',
+              userId: user.id,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              metadata: {},
+            };
+
+            updates.articles = [...(user.articles || []), newArticle];
           }
+
+          dispatch({ type: 'UPDATE_USER', payload: updates });
         }
       }
     } catch (error: any) {

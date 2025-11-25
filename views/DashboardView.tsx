@@ -8,7 +8,7 @@ export const DashboardView = ({ user }: { user: User | null }) => {
   const activeCount = user.articles?.filter(a => a.status === 'Draft').length || 0;
   
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in max-w-2xl mx-auto space-y-6">
       <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Dashboard</h2>
       
       {/* Metrics Grid */}

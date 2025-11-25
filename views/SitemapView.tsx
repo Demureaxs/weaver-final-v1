@@ -32,7 +32,7 @@ export const SitemapView = ({
   setOmitBaseUrl,
 }: SitemapViewProps) => {
   return (
-    <div className='animate-fade-in space-y-6'>
+    <div className='animate-fade-in space-y-6 max-w-2xl mx-auto'>
       <div className='bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden'>
         <div className='p-4 bg-gray-200 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2'>
           <Map className='text-indigo-500' size={20} />

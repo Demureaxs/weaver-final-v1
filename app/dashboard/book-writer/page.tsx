@@ -22,16 +22,18 @@ import {
   Book as BookIcon,
   Bookmark,
   Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import { useUserData, useUserActions } from '../../../context/UserContext';
 import { Book, Chapter, Character, WorldItem, WorldCategory } from '../../../lib/types';
-import { EditableBlock } from '../../../components/editor/EditableBlock';
-import { CharacterModal } from '../../../components/book/CharacterModal';
 import { BookContextModal } from '../../../components/book/BookContextModal';
 import { ChapterContextModal } from '../../../components/book/ChapterContextModal';
 import { ChapterGenerationModal } from '../../../components/book/ChapterGenerationModal';
 import { WorldItemModal } from '../../../components/book/WorldItemModal';
+import { BookSetupModal } from '../../../components/book/BookSetupModal';
 
+import { EditableBlock } from '../../../components/editor/EditableBlock';
+import { CharacterModal } from '../../../components/book/CharacterModal';
 // --- ICONS MAPPING ---
 const CategoryIcon = ({ category, size = 16 }: { category: WorldCategory; size?: number }) => {
   switch (category) {
@@ -197,7 +199,11 @@ export default function BookWriterPage() {
   const [isChapterContextModalOpen, setIsChapterContextModalOpen] = useState(false);
   const [isChapterGenModalOpen, setIsChapterGenModalOpen] = useState(false);
   const [isWorldItemModalOpen, setIsWorldItemModalOpen] = useState(false);
+  const [isPolishing, setIsPolishing] = useState(false);
   const [editingWorldItem, setEditingWorldItem] = useState<WorldItem | null>(null);
+
+  // Wizard State
+  const [isSetupWizardOpen, setIsSetupWizardOpen] = useState(false);
 
   // Inline Editing State
   const [editingBookId, setEditingBookId] = useState<string | null>(null);
@@ -492,26 +498,133 @@ export default function BookWriterPage() {
     }
   };
 
-  const handleCreateBook = async () => {
+  const handlePolishChapter = async () => {
+    if (!currentBook || !currentChapter) return;
+
+    // Optimistic credit check (5 credits)
+    if ((user?.profile?.credits || 0) < 5) {
+      alert('Insufficient credits. You need 5 credits to polish a chapter.');
+      return;
+    }
+
+    if (!confirm('This will rewrite the chapter to improve flow and coherence. It costs 5 credits. Continue?')) return;
+
+    setIsPolishing(true);
     try {
-      const response = await fetch('/api/books', {
+      const response = await fetch(`/api/books/${currentBook.id}/chapters/${currentChapter.id}/polish`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to polish chapter');
+      }
+
+      // Update local state with polished content
+      setLocalChapters((prev) => prev.map((c) => (c.id === currentChapter.id ? { ...c, content: data.chapter.content } : c)));
+
+      // Update user credits
+      if (user?.profile) {
+        dispatch({
+          type: 'UPDATE_USER',
+          payload: {
+            profile: { ...user.profile, credits: data.credits } as any,
+          },
+        });
+      }
+
+      alert('Chapter polished successfully!');
+    } catch (error) {
+      console.error('Polish error:', error);
+      alert('Failed to polish chapter. Please try again.');
+    } finally {
+      setIsPolishing(false);
+    }
+  };
+
+  const handleWizardComplete = async (
+    bookData: Partial<Book>,
+    characters: Partial<Character>[],
+    worldItems: Partial<WorldItem>[],
+    generateDraft: boolean
+  ) => {
+    try {
+      // 1. Create Book
+      const bookRes = await fetch('/api/books', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: 'New Book',
-          genre: 'Fantasy',
-          summary: 'A new story waiting to be written.',
+          title: bookData.title || 'Untitled Book',
+          genre: bookData.genre || 'Fiction',
+          tone: bookData.tone,
+          storyArc: bookData.storyArc,
+          summary: bookData.summary,
         }),
       });
-      if (response.ok) {
-        const newBook = await response.json();
-        setBooks((prevBooks) => [...prevBooks, newBook]);
+
+      if (!bookRes.ok) throw new Error('Failed to create book');
+      const newBook = await bookRes.json();
+
+      // 2. Create Characters
+      for (const char of characters) {
+        if (char.name) {
+          await fetch(`/api/books/${newBook.id}/characters`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(char),
+          });
+        }
+      }
+
+      // 3. Create World Items
+      for (const item of worldItems) {
+        if (item.name) {
+          await fetch(`/api/books/${newBook.id}/world`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...item, bookId: newBook.id }),
+          });
+        }
+      }
+
+      // 4. Generate Draft (Optional)
+      if (generateDraft) {
+        try {
+          const draftRes = await fetch(`/api/books/${newBook.id}/generate-draft`, { method: 'POST' });
+
+          if (!draftRes.ok) {
+            const errorData = await draftRes.json();
+            throw new Error(errorData.error || 'Failed to generate draft');
+          }
+
+          const draftData = await draftRes.json();
+
+          // Update credits from the response
+          if (user?.profile && draftData.credits !== undefined) {
+            dispatch({
+              type: 'UPDATE_USER',
+              payload: {
+                profile: { ...user.profile, credits: draftData.credits } as any,
+              },
+            });
+          }
+        } catch (e: any) {
+          console.error('Draft generation failed', e);
+          alert(`Book created successfully, but draft generation failed: ${e.message}. You can generate content manually from the chapter menu.`);
+        }
+      }
+
+      // 5. Refresh & Select
+      const refreshRes = await fetch('/api/books');
+      if (refreshRes.ok) {
+        const data = await refreshRes.json();
+        setBooks(data);
         setActiveBookId(newBook.id);
-      } else {
-        console.error('Failed to create book');
       }
     } catch (error) {
-      console.error('Error creating book:', error);
+      console.error('Wizard completion error:', error);
+      alert('Failed to complete book setup.');
     }
   };
 
@@ -760,7 +873,7 @@ export default function BookWriterPage() {
           <h2 className='text-2xl font-bold text-gray-800 dark:text-gray-100'>No Books Found</h2>
           <p className='text-gray-500'>Create your first book to start writing.</p>
           <button
-            onClick={handleCreateBook}
+            onClick={() => setIsSetupWizardOpen(true)}
             className='bg-purple-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-purple-700 transition-colors'
           >
             Create New Book
@@ -789,6 +902,7 @@ export default function BookWriterPage() {
           handleSaveWorldItem={handleSaveWorldItem}
           editingWorldItem={editingWorldItem}
         />
+        <BookSetupModal isOpen={isSetupWizardOpen} onClose={() => setIsSetupWizardOpen(false)} onSave={handleWizardComplete} />
       </>
     );
   }
@@ -804,7 +918,7 @@ export default function BookWriterPage() {
               <Library size={18} className='text-purple-600' />
               <span className='font-bold text-gray-700 dark:text-gray-200 text-sm'>Library</span>
             </div>
-            <button onClick={handleCreateBook} className='text-gray-400 hover:text-purple-600 transition-colors'>
+            <button onClick={() => setIsSetupWizardOpen(true)} className='text-gray-400 hover:text-purple-600 transition-colors'>
               <Plus size={16} />
             </button>
           </div>
@@ -1222,6 +1336,15 @@ export default function BookWriterPage() {
                           {currentChapter.summary || 'No summary set for this chapter.'}
                         </p>
                       </div>
+
+                      <button
+                        onClick={handlePolishChapter}
+                        disabled={isPolishing}
+                        className='w-full mt-2 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-xs font-bold hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors flex items-center justify-center gap-2 disabled:opacity-50'
+                      >
+                        {isPolishing ? <RefreshCw size={14} className='animate-spin' /> : <Sparkles size={14} />}
+                        {isPolishing ? 'Polishing...' : 'Polish Chapter (5 Credits)'}
+                      </button>
                     </div>
                     <button
                       onClick={() => setIsChapterContextModalOpen(true)}
@@ -1340,7 +1463,8 @@ export default function BookWriterPage() {
         setIsWorldItemModalOpen={setIsWorldItemModalOpen}
         handleSaveWorldItem={handleSaveWorldItem}
         editingWorldItem={editingWorldItem}
-      />{' '}
+      />
+      <BookSetupModal isOpen={isSetupWizardOpen} onClose={() => setIsSetupWizardOpen(false)} onSave={handleWizardComplete} />
     </>
   );
 }
