@@ -285,37 +285,6 @@ export default function BookWriterPage() {
     handleScrollTo(chapterId);
   };
 
-  const checkAndDeductCredits = async (cost: number) => {
-    if (!user || !user.profile) {
-      alert(`User data or profile is missing. Cannot deduct credits.`);
-      return false;
-    }
-    if (user.profile.credits < cost) {
-      alert(`Not enough credits! You need ${cost} but have ${user.profile.credits}. Upgrade to continue.`);
-      return false;
-    }
-
-    try {
-      const res = await fetch('/api/user/credits', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: cost, type: 'deduct' }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        dispatch({ type: 'UPDATE_USER', payload: { profile: { ...user.profile, credits: data.credits } } });
-        return true;
-      } else {
-        console.error('Failed to deduct credits');
-        return false;
-      }
-    } catch (error) {
-      console.error('Error deducting credits:', error);
-      return false;
-    }
-  };
-
   const getTagForContent = (text: string) => {
     if (text.startsWith('# ')) return 'h1';
     if (text.startsWith('## ')) return 'h2';
@@ -1165,8 +1134,15 @@ export default function BookWriterPage() {
                                 tag={getTagForContent(paragraph)}
                                 onSave={(idx: number, content: string) => handleParagraphSave(chapter.id, idx, content)}
                                 isStreaming={false}
-                                onDeductCredit={checkAndDeductCredits}
                                 context={getAIContext()}
+                                onCreditsUpdate={(credits: number) => {
+                                  if (user?.profile) {
+                                    dispatch({
+                                      type: 'UPDATE_USER',
+                                      payload: { profile: { ...user.profile, credits } },
+                                    });
+                                  }
+                                }}
                                 // Pass available characters for advanced prompt
                                 availableCharacters={displayCharacters}
                                 // We need to pass previous/next context, but EditableBlock needs to handle it.
