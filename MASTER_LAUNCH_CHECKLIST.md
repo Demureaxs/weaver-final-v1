@@ -57,9 +57,9 @@ This is the master list to get Weaver from "dev" to "production ready". It merge
 ## 🛡️ Phase 3: Security & Infrastructure (Critical Missing Items)
 *Items identified as missing from previous audits.*
 
-- [ ] **Middleware Protection (`middleware.ts`)**
-    - [ ] Create `middleware.ts` in root.
-    - [ ] Logic: If user visits `/dashboard/*` and has no session token, redirect to `/login`.
+- [x] **Middleware Protection (`middleware.ts`)**
+    - [x] Create `middleware.ts` in root.
+    - [x] Logic: If user visits `/dashboard/*` and has no session token, redirect to `/login`.
     - [ ] Protect `/api/*` routes (except webhooks/public endpoints).
 
 - [ ] **Error Handling**
