@@ -57,14 +57,14 @@ This is the master list to get Weaver from "dev" to "production ready". It merge
 ## 🛡️ Phase 3: Security & Infrastructure (Critical Missing Items)
 *Items identified as missing from previous audits.*
 
-- [ ] **Middleware Protection (`middleware.ts`)**
-    - [ ] Create `middleware.ts` in root.
-    - [ ] Logic: If user visits `/dashboard/*` and has no session token, redirect to `/login`.
+- [x] **Middleware Protection (`middleware.ts`)**
+    - [x] Create `middleware.ts` in root.
+    - [x] Logic: If user visits `/dashboard/*` and has no session token, redirect to `/login`.
     - [ ] Protect `/api/*` routes (except webhooks/public endpoints).
 
-- [ ] **Error Handling**
-    - [ ] Create `app/not-found.tsx`: Custom 404 page (keep users in your app).
-    - [ ] Create `app/error.tsx`: Global error boundary (catch crashes gracefully).
+- [x] **Error Handling**
+    - [x] Create `app/not-found.tsx`: Custom 404 page (keep users in your app).
+    - [x] Create `app/error.tsx`: Global error boundary (catch crashes gracefully).
 
 - [ ] **Authentication Polish**
     - [ ] **Forgot Password Flow:** Add "Forgot Password" link on login.
